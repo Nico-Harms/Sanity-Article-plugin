@@ -1,55 +1,66 @@
 import { NextResponse } from 'next/server';
-import { createNotionService } from '@/lib/notion';
+import { NotionService } from '@/lib/notion';
+import { ERROR_MESSAGES, NOTION_DEFAULTS, HTTP_STATUS } from '@/lib/constants';
+
+/*===============================================
+=          Notion table API route           =
+===============================================*/
 
 export async function GET() {
-  const notionService = createNotionService();
+  const notionApiKey = process.env.NOTION_API_KEY;
+  const databaseId = process.env.NOTION_DATABASE_ID;
 
-  if (!notionService) {
+  if (!notionApiKey) {
     return NextResponse.json(
-      { error: 'Notion API key not configured' },
-      { status: 500 }
+      { error: ERROR_MESSAGES.MISSING_API_KEY },
+      { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }
     );
   }
-
-  const databaseId = process.env.NOTION_DATABASE_ID;
 
   if (!databaseId) {
     return NextResponse.json(
-      { error: 'Database ID not configured' },
-      { status: 400 }
+      { error: ERROR_MESSAGES.MISSING_DATABASE_ID },
+      { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }
     );
   }
 
-  // Get database and pages
-  const database = await notionService.getDatabase(databaseId);
-  const pages = await notionService.queryDatabase(databaseId, 10);
+  const notionService = new NotionService(notionApiKey);
 
-  if (!database || !pages) {
+  try {
+    // Get database info
+    const database = await notionService.getDatabase(databaseId);
+
+    if (!database) {
+      return NextResponse.json(
+        { error: ERROR_MESSAGES.DATABASE_NOT_FOUND },
+        { status: HTTP_STATUS.NOT_FOUND }
+      );
+    }
+
+    // Query pages
+    const pages = await notionService.queryDatabase(
+      databaseId,
+      NOTION_DEFAULTS.PAGE_SIZE
+    );
+
+    return NextResponse.json({
+      database: {
+        id: database.id,
+        title: database.title,
+        properties: database.properties,
+      },
+      pages: pages,
+    });
+  } catch (error) {
+    console.error('[notion-table] API error:', error);
+
     return NextResponse.json(
-      { error: 'Failed to fetch data' },
-      { status: 500 }
+      {
+        error: ERROR_MESSAGES.INTERNAL_ERROR,
+        details:
+          error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR,
+      },
+      { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }
     );
   }
-
-  // Transform pages to readable format
-  const transformedPages = pages.results.map((page: any) => ({
-    id: page.id,
-    url: page.url,
-    title: notionService.extractTextFromProperty(
-      page.properties?.Name || page.properties?.Title
-    ),
-    properties: Object.keys(page.properties).reduce((acc: any, key: string) => {
-      acc[key] = notionService.extractPropertyValue(page.properties[key]);
-      return acc;
-    }, {}),
-  }));
-
-  return NextResponse.json({
-    database: {
-      id: database.id,
-      title: (database as any).title || 'Untitled',
-      properties: Object.keys((database as any).properties || {}),
-    },
-    pages: transformedPages,
-  });
 }

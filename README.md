@@ -31,8 +31,8 @@ Edit `apps/backend/.env` and add your Notion API credentials:
 
 ```env
 # Notion API Configuration
-NOTION_API_KEY=your_notion_integration_token_here
-NOTION_DATABASE_ID=your_notion_database_id_here
+NOTION_API_KEY=secret_your_notion_integration_token
+NOTION_DATABASE_ID=your_database_id_here
 ```
 
 ### 3. Start Development Server
@@ -50,11 +50,24 @@ The backend will be available at http://localhost:3001
 
 ## API Endpoints
 
-### Notion API
+### Health Check
+
+- `GET /api/health` - Check if the backend is running
+
+**Response:**
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00.000Z"
+}
+```
+
+### Notion Table
 
 - `GET /api/notion/table` - Read and transform Notion database content
 
-**Response Format:**
+**Response:**
 
 ```json
 {
@@ -93,12 +106,6 @@ The backend will be available at http://localhost:3001
 npm run type-check
 ```
 
-### Linting
-
-```bash
-npm run lint
-```
-
 ### Building
 
 ```bash
@@ -118,3 +125,20 @@ Simple and focused:
 1. **Notion Integration**: Fetches content from Notion databases
 2. **Data Transformation**: Converts Notion properties to readable format
 3. **Clean API**: Returns structured JSON for easy consumption
+
+## Testing
+
+1. Start the backend: `npm run dev`
+2. Visit http://localhost:3001
+3. Click "Test Health" → Should return `{ status: 'ok' }`
+4. Click "Fetch Notion Data" → Should return database + pages
+5. Verify data structure matches your Notion database
+
+## Next Steps
+
+Once Notion integration is working:
+
+- Add encryption layer for API keys
+- Build Sanity plugin
+- Integrate encrypted key storage
+- Add LLM wrapper for content generation

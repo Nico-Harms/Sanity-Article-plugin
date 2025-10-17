@@ -1,10 +1,22 @@
 import { Client } from '@notionhq/client';
+import type {
+  GetPageResponse,
+  PageObjectResponse,
+} from '@notionhq/client/build/src/api-endpoints';
+import type {
+  NotionPage,
+  NotionDatabase,
+} from '@/types/notion';
+import { NOTION_DEFAULTS } from '@/lib/constants';
 
-/**
- * Simple Notion API client wrapper
- */
 export class NotionService {
   private client: Client;
+
+  private isFullPageResponse(
+    response: GetPageResponse
+  ): response is PageObjectResponse {
+    return 'properties' in response;
+  }
 
   constructor(apiKey: string) {
     this.client = new Client({
@@ -31,12 +43,17 @@ export class NotionService {
   /**
    * Get database information
    */
-  async getDatabase(databaseId: string) {
+  async getDatabase(databaseId: string): Promise<NotionDatabase | null> {
     try {
       const response = await this.client.databases.retrieve({
         database_id: databaseId,
       });
-      return response;
+
+      return {
+        id: response.id,
+        title: (response as any).title || NOTION_DEFAULTS.UNTITLED_DATABASE,
+        properties: Object.keys((response as any).properties || {}),
+      };
     } catch (error) {
       console.error('[notion-service] Failed to get database:', error);
       return null;
@@ -46,132 +63,143 @@ export class NotionService {
   /**
    * Query database pages
    */
-  async queryDatabase(databaseId: string, pageSize = 10) {
+  async queryDatabase(
+    databaseId: string,
+    pageSize = NOTION_DEFAULTS.PAGE_SIZE
+  ): Promise<NotionPage[]> {
     try {
       const response = await this.client.databases.query({
         database_id: databaseId,
         page_size: pageSize,
       });
-      return response;
+
+      return response.results.map((page: any) => ({
+        id: page.id,
+        url: page.url,
+        title:
+          this.extractPropertyValue(
+            page.properties?.Name || page.properties?.Title
+          ) || NOTION_DEFAULTS.UNTITLED_PAGE,
+        properties: Object.keys(page.properties).reduce(
+          (acc: any, key: string) => {
+            acc[key] = this.extractPropertyValue(page.properties[key]);
+            return acc;
+          },
+          {}
+        ),
+      }));
     } catch (error) {
       console.error('[notion-service] Failed to query database:', error);
-      return null;
+      return [];
     }
   }
 
   /**
-   * Extract all text content from a Notion page
+   * Update the status property of a Notion page
    */
-  async getPageContent(pageId: string) {
+  async updatePageStatus(
+    pageId: string,
+    status: string,
+    propertyName: string = NOTION_DEFAULTS.STATUS_PROPERTY
+  ): Promise<NotionPage | null> {
     try {
-      const response = await this.client.blocks.children.list({
-        block_id: pageId,
+      const page = await this.client.pages.retrieve({
+        page_id: pageId,
       });
-      return response;
+
+      if (!this.isFullPageResponse(page)) {
+        throw new Error('NOTION_PAGE_UNEXPECTED_SHAPE');
+      }
+
+      const properties = page.properties as Record<string, any>;
+      const property = properties[propertyName];
+
+      if (!property) {
+        throw new Error('NOTION_STATUS_PROPERTY_NOT_FOUND');
+      }
+
+      let propertyUpdate: Record<string, unknown> | null = null;
+
+      if (property.type === 'status') {
+        propertyUpdate = {
+          status: { name: status },
+        };
+      } else if (property.type === 'select') {
+        propertyUpdate = {
+          select: { name: status },
+        };
+      }
+
+      if (!propertyUpdate) {
+        throw new Error('NOTION_STATUS_PROPERTY_UNSUPPORTED');
+      }
+
+      await this.client.pages.update({
+        page_id: pageId,
+        properties: {
+          [propertyName]: propertyUpdate,
+        } as Record<string, any>,
+      });
+
+      const updatedPage = await this.client.pages.retrieve({
+        page_id: pageId,
+      });
+
+      if (!this.isFullPageResponse(updatedPage)) {
+        return null;
+      }
+
+      const updatedProperties =
+        updatedPage.properties as Record<string, any>;
+
+      return {
+        id: updatedPage.id,
+        url: updatedPage.url,
+        title:
+          this.extractPropertyValue(
+            updatedProperties?.Name || updatedProperties?.Title
+          ) || NOTION_DEFAULTS.UNTITLED_PAGE,
+        properties: Object.keys(updatedProperties).reduce<
+          Record<string, unknown>
+        >(
+          (acc, key) => {
+            acc[key] = this.extractPropertyValue(updatedProperties[key]);
+            return acc;
+          },
+          {}
+        ),
+      };
     } catch (error) {
-      console.error('[notion-service] Failed to get page content:', error);
-      return null;
+      console.error('[notion-service] Failed to update status:', error);
+      throw error;
     }
   }
 
   /**
-   * Transform Notion page data into readable format
+   * Extract value from Notion property
    */
-  transformPageData(page: any) {
-    if (!page) return null;
-
-    const transformedPage = {
-      id: page.id,
-      url: page.url,
-      created_time: page.created_time,
-      last_edited_time: page.last_edited_time,
-      properties: {},
-    };
-
-    // Extract properties based on their type
-    if (page.properties) {
-      Object.entries(page.properties).forEach(
-        ([key, property]: [string, any]) => {
-          transformedPage.properties[key] = this.extractPropertyValue(property);
-        }
-      );
-    }
-
-    return transformedPage;
-  }
-
-  /**
-   * Extract text from title or rich_text property
-   */
-  extractTextFromProperty(property: any): string {
-    if (!property) return '';
-
-    if (property.type === 'title' && property.title) {
-      return property.title.map((t: any) => t.plain_text).join('');
-    }
-
-    if (property.type === 'rich_text' && property.rich_text) {
-      return property.rich_text.map((t: any) => t.plain_text).join('');
-    }
-
-    return '';
-  }
-
-  /**
-   * Extract value from Notion property based on type
-   */
-  extractPropertyValue(property: any) {
+  extractPropertyValue(property: any): any {
     if (!property || !property.type) return null;
 
     switch (property.type) {
       case 'title':
         return property.title?.map((t: any) => t.plain_text).join('') || '';
-
       case 'rich_text':
         return property.rich_text?.map((t: any) => t.plain_text).join('') || '';
-
       case 'select':
         return property.select?.name || null;
-
       case 'multi_select':
         return property.multi_select?.map((item: any) => item.name) || [];
-
       case 'date':
         return property.date?.start || null;
-
       case 'number':
         return property.number;
-
       case 'checkbox':
         return property.checkbox;
-
-      case 'url':
-        return property.url;
-
-      case 'email':
-        return property.email;
-
-      case 'phone_number':
-        return property.phone_number;
-
+      case 'status':
+        return property.status?.name || null;
       default:
         return property[property.type] || null;
     }
   }
-}
-
-/**
- * Create Notion service instance
- */
-export function createNotionService(): NotionService | null {
-  const apiKey = process.env.NOTION_API_KEY;
-
-  if (!apiKey) {
-    console.error(
-      '[notion-service] NOTION_API_KEY environment variable is not set'
-    );
-    return null;
-  }
-
-  return new NotionService(apiKey);
 }
