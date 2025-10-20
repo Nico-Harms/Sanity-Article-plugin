@@ -1,12 +1,15 @@
-# Notion API Backend
+# Sanity Notion LLM Plugin
 
-A simple Next.js backend for reading Notion database tables and extracting structured content.
+A reusable Sanity plugin that connects Notion tables with LLM to generate article drafts. This monorepo contains a Next.js backend for Notion integration and a Sanity Studio that consumes the plugin.
 
 ## Project Structure
 
 ```
 ├── apps/
-│   └── backend/          # Next.js API backend for Notion integration
+│   ├── backend/          # Next.js API backend (server-side only)
+│   └── studio/           # Sanity Studio consuming the plugin
+├── packages/
+│   └── sanity-notion-llm-plugin/  # Reusable Sanity plugin
 ├── package.json          # Root workspace configuration
 └── tsconfig.json         # TypeScript configuration
 ```
@@ -50,19 +53,6 @@ The backend will be available at http://localhost:3001
 
 ## API Endpoints
 
-### Health Check
-
-- `GET /api/health` - Check if the backend is running
-
-**Response:**
-
-```json
-{
-  "status": "ok",
-  "timestamp": "2024-01-01T00:00:00.000Z"
-}
-```
-
 ### Notion Table
 
 - `GET /api/notion/table` - Read and transform Notion database content
@@ -88,6 +78,36 @@ The backend will be available at http://localhost:3001
       }
     }
   ]
+}
+```
+
+### Notion Status Update
+
+- `PATCH /api/notion/status` - Update the status of a Notion page
+
+**Request Body:**
+
+```json
+{
+  "pageId": "page_id_here",
+  "status": "In Progress",
+  "propertyName": "Status"
+}
+```
+
+**Response:**
+
+```json
+{
+  "page": {
+    "id": "page_id",
+    "url": "notion_url",
+    "title": "Page Title",
+    "properties": {
+      "Status": "In Progress",
+      "Area": "AI"
+    }
+  }
 }
 ```
 
@@ -129,16 +149,29 @@ Simple and focused:
 ## Testing
 
 1. Start the backend: `npm run dev`
-2. Visit http://localhost:3001
-3. Click "Test Health" → Should return `{ status: 'ok' }`
-4. Click "Fetch Notion Data" → Should return database + pages
-5. Verify data structure matches your Notion database
+2. Test the Notion table endpoint: `GET http://localhost:3001/api/notion/table`
+3. Test status update: `PATCH http://localhost:3001/api/notion/status` with JSON body
+4. Verify data structure matches your Notion database
+
+## Development
+
+### Backend Development
+
+```bash
+cd apps/backend
+npm run dev
+```
+
+### Studio Development
+
+```bash
+cd apps/studio
+npm run dev
+```
 
 ## Next Steps
 
-Once Notion integration is working:
-
-- Add encryption layer for API keys
-- Build Sanity plugin
-- Integrate encrypted key storage
-- Add LLM wrapper for content generation
+- Build Sanity plugin with @sanity/plugin-kit
+- Create Studio app that consumes the plugin
+- Add encrypted API key storage in Sanity
+- Integrate LLM wrapper for content generation

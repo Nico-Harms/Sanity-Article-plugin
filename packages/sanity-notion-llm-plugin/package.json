@@ -1,0 +1,36 @@
+{
+  "name": "sanity-notion-llm-plugin",
+  "version": "0.1.0",
+  "description": "A reusable Sanity plugin that connects Notion tables with LLM to generate article drafts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "sanity",
+    "plugin",
+    "notion",
+    "llm",
+    "content"
+  ],
+  "author": "Nicolai Harms",
+  "license": "MIT",
+  "peerDependencies": {
+    "react": "^18.0.0",
+    "sanity": "^3.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@sanity/ui": "^1.0.0",
+    "styled-components": "^6.0.0"
+  }
+}
