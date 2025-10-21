@@ -1,5 +1,5 @@
 import { Card, Text, Switch, Box, Flex, Badge, Select } from '@sanity/ui';
-import { type LogicalField, type SchemaField } from '../types';
+import { type LogicalField, type SchemaField } from '@sanity-notion-llm/shared';
 
 interface FieldMappingCardProps {
   logicalField: LogicalField;

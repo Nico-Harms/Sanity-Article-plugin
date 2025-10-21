@@ -5,48 +5,61 @@ import {
   type FieldMapping,
   type SchemaField,
   type SchemaType,
-} from '../types';
+} from '@sanity-notion-llm/shared';
 
-/*===============================================
-=         Schema Utilities         =
-===============================================*/
+const SYSTEM_TYPES = [
+  'document',
+  'object',
+  'array',
+  'string',
+  'number',
+  'boolean',
+  'date',
+  'datetime',
+  'url',
+  'email',
+  'slug',
+  'text',
+  'block',
+  'image',
+  'file',
+  'reference',
+  'crossDatasetReference',
+  'span',
+  'portableText',
+];
+
+const FIELD_VARIATIONS: Record<string, string[]> = {
+  title: ['name', 'headline', 'heading', 'subject'],
+  body: ['content', 'text', 'description', 'bodyText', 'mainContent'],
+  slug: ['url', 'permalink', 'path'],
+  excerpt: ['summary', 'description', 'intro', 'lead'],
+  author: ['writer', 'creator', 'byline'],
+  image: ['mainImage', 'coverImage', 'featuredImage', 'heroImage', 'thumbnail'],
+  tags: ['categories', 'topics', 'labels', 'keywords'],
+  citations: ['references', 'sources', 'links'],
+};
+
+const TYPE_COMPATIBILITY: Record<string, string[]> = {
+  string: ['string', 'slug', 'url', 'email'],
+  text: ['text', 'block', 'portableText', 'string'],
+  reference: ['reference', 'crossDatasetReference'],
+  image: ['image', 'file'],
+  array: ['array'],
+};
 
 export function getContentSchemaTypes(schema: Schema): SchemaType[] {
-  const systemTypes = [
-    'document',
-    'object',
-    'array',
-    'string',
-    'number',
-    'boolean',
-    'date',
-    'datetime',
-    'url',
-    'email',
-    'slug',
-    'text',
-    'block',
-    'image',
-    'file',
-    'reference',
-    'crossDatasetReference',
-    'span',
-    'portableText',
-  ];
-
   return schema
     .getTypeNames()
     .map((name) => schema.get(name))
     .filter((type): type is SanitySchemaType => {
-      if (!type || !type.jsonType) return false;
-      if (systemTypes.includes(type.name)) return false;
-      if (type.name.startsWith('sanity.')) return false;
-      if (type.name.startsWith('system.')) return false;
+      if (!type?.jsonType || SYSTEM_TYPES.includes(type.name)) return false;
+      if (type.name.startsWith('sanity.') || type.name.startsWith('system.'))
+        return false;
       return (
         type.jsonType === 'object' &&
         'fields' in type &&
-        type.fields &&
-        type.fields.length > 0
+        type.fields?.length > 0
       );
     })
     .map((type) => ({
@@ -62,46 +75,29 @@ export function getContentSchemaTypes(schema: Schema): SchemaType[] {
     }));
 }
 
-/*===============================================
-=          Get schema fields           =
-===============================================*/
-
 export function getSchemaFields(schemaType: SchemaType): SchemaField[] {
-  if (!schemaType.fields) return [];
-
-  return schemaType.fields.map((field) => ({
-    name: field.name,
-    type: field.type,
-    title: field.title || field.name,
-    description: field.description,
-  }));
+  return (
+    schemaType.fields?.map((field) => ({
+      name: field.name,
+      type: field.type,
+      title: field.title || field.name,
+      description: field.description,
+    })) || []
+  );
 }
-
-/*===============================================
-=          Auto-detect field mappings           =
-===============================================*/
 
 export function autoDetectFieldMappings(
   schemaFields: SchemaField[]
 ): FieldMapping[] {
-  const mappings: FieldMapping[] = [];
-
-  for (const logicalField of LOGICAL_FIELDS) {
+  return LOGICAL_FIELDS.map((logicalField) => {
     const detectedField = findBestMatch(logicalField, schemaFields);
-
-    mappings.push({
+    return {
       logicalField: logicalField.key,
       schemaField: detectedField?.name || null,
       enabled: !!detectedField && logicalField.required,
-    });
-  }
-
-  return mappings;
+    };
+  });
 }
-
-/*===============================================
-=          Find the best matching schema field for a logical field           =
-===============================================*/
 
 function findBestMatch(
   logicalField: LogicalField,
@@ -114,7 +110,7 @@ function findBestMatch(
   if (match && isTypeCompatible(type, match.type)) return match;
 
   // Common variations
-  const variations = getFieldVariations(key);
+  const variations = FIELD_VARIATIONS[key] || [];
   for (const variation of variations) {
     match = schemaFields.find(
       (field) =>
@@ -130,50 +126,9 @@ function findBestMatch(
   );
 }
 
-/*===============================================
-=          Get common field name variations           =
-===============================================*/
-
-function getFieldVariations(fieldName: string): string[] {
-  const variations: Record<string, string[]> = {
-    title: ['name', 'headline', 'heading', 'subject'],
-    body: ['content', 'text', 'description', 'bodyText', 'mainContent'],
-    slug: ['url', 'permalink', 'path'],
-    excerpt: ['summary', 'description', 'intro', 'lead'],
-    author: ['writer', 'creator', 'byline'],
-    image: [
-      'mainImage',
-      'coverImage',
-      'featuredImage',
-      'heroImage',
-      'thumbnail',
-    ],
-    tags: ['categories', 'topics', 'labels', 'keywords'],
-    citations: ['references', 'sources', 'links'],
-  };
-
-  return variations[fieldName] || [];
-}
-
-/*===============================================
-=          Check if a logical field type is compatible with a schema field type           =
-===============================================*/
-
 function isTypeCompatible(logicalType: string, schemaType: string): boolean {
-  const compatibility: Record<string, string[]> = {
-    string: ['string', 'slug', 'url', 'email'],
-    text: ['text', 'block', 'portableText', 'string'],
-    reference: ['reference', 'crossDatasetReference'],
-    image: ['image', 'file'],
-    array: ['array'],
-  };
-
-  return compatibility[logicalType]?.includes(schemaType) || false;
+  return TYPE_COMPATIBILITY[logicalType]?.includes(schemaType) || false;
 }
-
-/*===============================================
-=          Validate field mappings           =
-===============================================*/
 
 export function validateFieldMappings(mappings: FieldMapping[]): {
   valid: boolean;
@@ -202,8 +157,5 @@ export function validateFieldMappings(mappings: FieldMapping[]): {
     errors.push(`Duplicate field mappings: ${duplicates.join(', ')}`);
   }
 
-  return {
-    valid: errors.length === 0,
-    errors,
-  };
+  return { valid: errors.length === 0, errors };
 }

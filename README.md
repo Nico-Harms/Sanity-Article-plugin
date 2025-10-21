@@ -1,16 +1,17 @@
 # Sanity Notion LLM Plugin
 
-A reusable Sanity plugin that connects Notion tables with LLM to generate article drafts. This monorepo contains a Next.js backend for Notion integration, a Sanity Studio that consumes the plugin, and a frontend blog to display content.
+A production-ready, multi-tenant Sanity plugin that connects Notion tables with LLM to automatically generate article drafts. Features clean service layer architecture, MongoDB persistence, and automated content generation scheduling.
 
 ## Project Structure
 
 ```
 ├── apps/
-│   ├── backend/          # Next.js API backend (server-side only)
+│   ├── backend/          # Next.js API backend with service layer
 │   ├── studio/           # Sanity Studio consuming the plugin
 │   │   └── plugin-project/  # Actual Sanity Studio project
 │   └── frontend/         # Next.js blog frontend (customer-facing)
 ├── packages/
+│   ├── shared/           # Shared types and constants
 │   └── sanity-notion-llm-plugin/  # Reusable Sanity plugin
 ├── package.json          # Root workspace configuration
 └── tsconfig.json         # TypeScript configuration
@@ -18,11 +19,31 @@ A reusable Sanity plugin that connects Notion tables with LLM to generate articl
 
 ## Current Status
 
-✅ **Backend**: Notion API integration working  
-✅ **Studio**: Sanity Studio with plugin loading  
+✅ **Backend**: Clean service layer architecture with MongoDB  
+✅ **Studio**: Sanity Studio with enhanced plugin  
 ✅ **Frontend**: Blog displaying Sanity content  
-✅ **Plugin**: Basic plugin structure created  
-🔄 **Next**: Connect all components together
+✅ **Plugin**: Multi-tenant configuration with backend integration  
+✅ **Database**: MongoDB Atlas integration with encrypted API keys  
+✅ **Scheduler**: Vercel Cron preparation (placeholder implementation)  
+🔄 **Next**: LLM integration and content generation logic
+
+## Architecture Overview
+
+### Clean Multi-Tenant Architecture
+
+- **Service Layer**: Centralized business logic in `apps/backend/src/lib/services/`
+- **Database Layer**: MongoDB Atlas with encrypted API key storage
+- **Multi-Tenant**: Each Studio instance has isolated configuration
+- **API Client**: Plugin communicates with backend via REST API
+- **Scheduler**: Vercel Cron Jobs for automated content generation
+
+### Key Features
+
+- 🔐 **Secure**: API keys encrypted in MongoDB, decrypted server-side
+- 🏢 **Multi-Tenant**: Each Studio can have separate Notion/LLM configurations
+- 🔄 **Automated**: Scheduled content generation based on Notion dates
+- 🎯 **Dynamic**: Auto-detects Sanity schemas and suggests field mappings
+- 📊 **Persistent**: Configuration saved to MongoDB, not localStorage
 
 ## Quick Start
 
@@ -32,26 +53,40 @@ A reusable Sanity plugin that connects Notion tables with LLM to generate articl
 npm install
 ```
 
-### 2. Set Up Environment Variables
+### 2. Set Up MongoDB Atlas
 
-Copy the example environment file:
+1. Create a MongoDB Atlas account at [mongodb.com/atlas](https://www.mongodb.com/atlas)
+2. Create a free cluster (M0)
+3. Create a database user with read/write permissions
+4. Whitelist your IP address (0.0.0.0/0 for development)
+5. Get your connection string
 
-```bash
-cp apps/backend/.env.example apps/backend/.env
-```
+### 3. Set Up Environment Variables
 
-Edit `apps/backend/.env` and add your Notion API credentials:
+#### Backend Environment (`apps/backend/.env.local`)
 
 ```env
-# Notion API Configuration
-NOTION_API_KEY=secret_your_notion_integration_token
-NOTION_DATABASE_ID=your_database_id_here
+# MongoDB Atlas connection string
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/notion-llm-plugin
+
+# Encryption secret for API keys (32+ characters)
+ENCRYPTION_SECRET=your-32-character-secret-key-here
+
+# Vercel Cron secret (for production)
+CRON_SECRET=your-cron-secret-here
 ```
 
-### 3. Start Development Servers
+#### Studio Environment (`apps/studio/plugin-project/.env.local`)
+
+```env
+# Backend API URL for the Notion LLM plugin
+SANITY_STUDIO_BACKEND_URL=http://localhost:3001
+```
+
+### 4. Start Development Servers
 
 ```bash
-# Start the backend (Notion API)
+# Start the backend (API + Database)
 cd apps/backend
 npm run dev
 # Available at http://localhost:3001
@@ -75,141 +110,125 @@ npm run dev
 
 ## API Endpoints
 
-### Notion Table
+### Configuration Management
 
-- `GET /api/notion/table` - Read and transform Notion database content
+- `GET /api/config?studioId={id}` - Load plugin configuration
+- `POST /api/config` - Save plugin configuration (with encrypted API keys)
 
-**Response:**
+### Notion Integration
 
-```json
-{
-  "database": {
-    "id": "database_id",
-    "title": "Database Name",
-    "properties": ["Name", "Status", "Tags"]
-  },
-  "pages": [
-    {
-      "id": "page_id",
-      "url": "notion_url",
-      "title": "Page Title",
-      "properties": {
-        "Name": "Article Title",
-        "Status": "Published",
-        "Tags": ["tag1", "tag2"]
-      }
-    }
-  ]
-}
-```
+- `GET /api/notion/table?studioId={id}` - Read Notion database content
+- `PATCH /api/notion/status?studioId={id}` - Update Notion page status
 
-### Notion Status Update
+### Scheduled Content Generation
 
-- `PATCH /api/notion/status` - Update the status of a Notion page
+- `GET /api/cron/generate-content` - Vercel Cron endpoint (placeholder)
 
-**Request Body:**
+## Plugin Usage
 
-```json
-{
-  "pageId": "page_id_here",
-  "status": "In Progress",
-  "propertyName": "Status"
-}
-```
+### 1. Configure API Settings
 
-**Response:**
+1. Open Sanity Studio
+2. Navigate to "Notion LLM" tool
+3. Go to "Settings" tab
+4. Enter your Notion Database URL and Client Secret
+5. Enter your LLM API Key
+6. Click "Test Connection"
 
-```json
-{
-  "page": {
-    "id": "page_id",
-    "url": "notion_url",
-    "title": "Page Title",
-    "properties": {
-      "Status": "In Progress",
-      "Area": "AI"
-    }
-  }
-}
-```
+### 2. Map Fields
 
-## Notion Setup
+1. Go to "Fields" tab
+2. Select your content schema (e.g., "article", "blogPost")
+3. Map logical fields to schema fields:
+   - **Title** → `title` field
+   - **Body Content** → `body` field
+   - **Slug** → `slug` field
+   - **Main Image** → `mainImage` field
+   - etc.
 
-1. Create a Notion integration at https://www.notion.so/my-integrations
-2. Copy the integration token to `NOTION_API_KEY`
-3. Share your database with the integration
-4. Copy the database ID from the URL to `NOTION_DATABASE_ID`
+### 3. Generate Content
 
-## Development
+1. Go to "Generate" tab
+2. Click "Load Notion Data" to preview your Notion pages
+3. Click "Generate Content from Notion" to create Sanity drafts
 
-### Type Checking
+## Database Schema
 
-```bash
-npm run type-check
-```
+### Collections
 
-### Building
+- **`configs`**: Plugin configurations per Studio
 
-```bash
-npm run build
-```
+  - `studioId` (string, unique)
+  - `notionDatabaseUrl` (string)
+  - `notionClientSecret` (string, encrypted)
+  - `llmApiKey` (string, encrypted)
+  - `selectedSchema` (string)
+  - `fieldMappings` (array)
+  - `isActive` (boolean)
+
+- **`generations`**: Content generation history
+  - `configId` (ObjectId)
+  - `notionPageId` (string)
+  - `scheduledDate` (Date)
+  - `status` (string)
+  - `sanityDocumentId` (string)
 
 ## Tech Stack
 
-- **Backend**: Next.js 15 (App Router), TypeScript
+- **Backend**: Next.js 15 (App Router), TypeScript, MongoDB
 - **Studio**: Sanity v3, React, @sanity/ui
 - **Frontend**: Next.js 15, React, Tailwind CSS v4
+- **Database**: MongoDB Atlas
 - **APIs**: Notion API, Sanity API
-- **Styling**: Tailwind CSS v4 (PostCSS plugin approach)
+- **Encryption**: bcryptjs for API key security
+- **Scheduling**: Vercel Cron Jobs
 
-## Architecture
+## Service Layer Architecture
 
-Clean separation of concerns:
+### Backend Services (`apps/backend/src/lib/services/`)
 
-1. **Backend** (`apps/backend`): Server-side API for Notion integration
+- **`ConfigService`**: Configuration CRUD operations
+- **`NotionService`**: Notion API integration
+- **`EncryptionService`**: API key encryption/decryption
 
-   - Handles Notion API calls
-   - Transforms data for consumption
-   - Provides REST endpoints
+### Database Layer (`apps/backend/src/lib/database/`)
 
-2. **Studio** (`apps/studio/plugin-project`): Content management interface
+- **`connection.ts`**: MongoDB connection singleton
+- **`models.ts`**: Collection interfaces and indexes
 
-   - Sanity Studio for content editing
-   - Plugin integration for Notion workflow
-   - Multi-tenant API key management
+### Shared Package (`packages/shared/`)
 
-3. **Frontend** (`apps/frontend`): Customer-facing blog
+- **Types**: Common TypeScript interfaces
+- **Constants**: Error messages and default values
 
-   - Displays Sanity content
-   - Responsive design with Tailwind v4
-   - Static generation for performance
+## Security Features
 
-4. **Plugin** (`packages/sanity-notion-llm-plugin`): Reusable Sanity tool
-   - Custom Studio tool for Notion integration
-   - Configurable for different projects
-   - Handles API key encryption/decryption
+- 🔐 **Encrypted Storage**: API keys encrypted with bcryptjs
+- 🏢 **Multi-Tenant Isolation**: Each Studio has separate configuration
+- 🔒 **Server-Side Decryption**: Keys only decrypted in backend
+- 🛡️ **Input Validation**: All API inputs validated
+- 🔑 **Cron Authentication**: Scheduled jobs require secret token
 
-## Testing
+## Deployment
 
-### Backend API Testing
+### Backend (Vercel)
 
-1. Start the backend: `cd apps/backend && npm run dev`
-2. Test Notion table: `GET http://localhost:3001/api/notion/table`
-3. Test status update: `PATCH http://localhost:3001/api/notion/status` with JSON body
+1. Connect your repository to Vercel
+2. Set environment variables in Vercel dashboard
+3. Deploy to get your backend URL
+4. Update Studio environment with production backend URL
 
-### Studio Testing
+### Studio (Sanity)
 
-1. Start the Studio: `cd apps/studio/plugin-project && npm run dev`
-2. Visit http://localhost:3333
-3. Verify "Notion LLM" plugin appears in navigation
-4. Create/edit blog posts in the Studio
+1. Deploy Studio to Sanity's hosting
+2. Update environment variables
+3. Configure domain and SSL
 
-### Frontend Testing
+### Database (MongoDB Atlas)
 
-1. Start the frontend: `cd apps/frontend && npm run dev`
-2. Visit http://localhost:3000
-3. Verify blog posts from Sanity are displayed
-4. Test individual post pages
+1. Create production cluster
+2. Configure IP whitelist for production servers
+3. Set up monitoring and backups
 
 ## Development Commands
 
@@ -225,12 +244,69 @@ cd apps/frontend && npm run dev
 
 # Plugin development
 cd packages/sanity-notion-llm-plugin && npm run dev
+
+# Shared package development
+cd packages/shared && npm run dev
 ```
 
-## Next Steps
+## Testing
 
-- [ ] Connect plugin to backend API
-- [ ] Add encrypted API key storage in Sanity
-- [ ] Implement Notion data display in Studio
-- [ ] Add LLM integration for content generation
-- [ ] Create field mapping between Notion and Sanity
+### Manual Testing Checklist
+
+- [ ] Backend connects to MongoDB Atlas successfully
+- [ ] Plugin can load configuration from backend
+- [ ] Plugin can save configuration to backend
+- [ ] API keys are encrypted in database
+- [ ] Connection test works in plugin
+- [ ] Field mappings persist correctly
+- [ ] Multiple Studio instances can have separate configs
+- [ ] Vercel cron endpoint is accessible (even if placeholder)
+
+### API Testing
+
+```bash
+# Test configuration loading
+curl "http://localhost:3001/api/config?studioId=test-studio"
+
+# Test Notion data loading
+curl "http://localhost:3001/api/notion/table?studioId=test-studio"
+
+# Test cron endpoint
+curl -H "Authorization: Bearer your-cron-secret" \
+     "http://localhost:3001/api/cron/generate-content"
+```
+
+## What's Next
+
+### Phase 2: LLM Integration
+
+- [ ] OpenAI API integration
+- [ ] Content generation from Notion pages
+- [ ] Sanity document creation
+- [ ] Error handling and retry logic
+
+### Phase 3: Advanced Features
+
+- [ ] Content scheduling based on Notion dates
+- [ ] Batch processing
+- [ ] Content templates
+- [ ] Analytics and monitoring
+
+### Phase 4: Production Features
+
+- [ ] Rate limiting
+- [ ] Caching
+- [ ] Monitoring and alerts
+- [ ] Performance optimization
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+MIT License - see LICENSE file for details.

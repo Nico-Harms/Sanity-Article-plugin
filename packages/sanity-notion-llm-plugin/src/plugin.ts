@@ -11,9 +11,3 @@ export const sanityNotionLLMPlugin = definePlugin({
     },
   ],
 });
-
-export {
-  type LogicalField,
-  type FieldMapping,
-  type PluginConfig,
-} from './types';

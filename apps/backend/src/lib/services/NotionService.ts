@@ -3,11 +3,8 @@ import type {
   GetPageResponse,
   PageObjectResponse,
 } from '@notionhq/client/build/src/api-endpoints';
-import type {
-  NotionPage,
-  NotionDatabase,
-} from '@/types/notion';
-import { NOTION_DEFAULTS } from '@/lib/constants';
+import type { NotionPage, NotionDatabase } from '@sanity-notion-llm/shared';
+import { NOTION_DEFAULTS, ERROR_MESSAGES } from '@sanity-notion-llm/shared';
 
 export class NotionService {
   private client: Client;
@@ -51,7 +48,7 @@ export class NotionService {
 
       return {
         id: response.id,
-        title: (response as any).title || NOTION_DEFAULTS.UNTITLED_DATABASE,
+        title: (response as any).title || 'Untitled Database',
         properties: Object.keys((response as any).properties || {}),
       };
     } catch (error) {
@@ -65,7 +62,7 @@ export class NotionService {
    */
   async queryDatabase(
     databaseId: string,
-    pageSize = NOTION_DEFAULTS.PAGE_SIZE
+    pageSize = 100
   ): Promise<NotionPage[]> {
     try {
       const response = await this.client.databases.query({
@@ -108,14 +105,14 @@ export class NotionService {
       });
 
       if (!this.isFullPageResponse(page)) {
-        throw new Error('NOTION_PAGE_UNEXPECTED_SHAPE');
+        throw new Error(ERROR_MESSAGES.NOTION_PAGE_UNEXPECTED_SHAPE);
       }
 
       const properties = page.properties as Record<string, any>;
       const property = properties[propertyName];
 
       if (!property) {
-        throw new Error('NOTION_STATUS_PROPERTY_NOT_FOUND');
+        throw new Error(ERROR_MESSAGES.NOTION_STATUS_PROPERTY_NOT_FOUND);
       }
 
       let propertyUpdate: Record<string, unknown> | null = null;
@@ -131,7 +128,7 @@ export class NotionService {
       }
 
       if (!propertyUpdate) {
-        throw new Error('NOTION_STATUS_PROPERTY_UNSUPPORTED');
+        throw new Error(ERROR_MESSAGES.NOTION_STATUS_PROPERTY_UNSUPPORTED);
       }
 
       await this.client.pages.update({
@@ -149,8 +146,7 @@ export class NotionService {
         return null;
       }
 
-      const updatedProperties =
-        updatedPage.properties as Record<string, any>;
+      const updatedProperties = updatedPage.properties as Record<string, any>;
 
       return {
         id: updatedPage.id,
@@ -161,13 +157,10 @@ export class NotionService {
           ) || NOTION_DEFAULTS.UNTITLED_PAGE,
         properties: Object.keys(updatedProperties).reduce<
           Record<string, unknown>
-        >(
-          (acc, key) => {
-            acc[key] = this.extractPropertyValue(updatedProperties[key]);
-            return acc;
-          },
-          {}
-        ),
+        >((acc, key) => {
+          acc[key] = this.extractPropertyValue(updatedProperties[key]);
+          return acc;
+        }, {}),
       };
     } catch (error) {
       console.error('[notion-service] Failed to update status:', error);

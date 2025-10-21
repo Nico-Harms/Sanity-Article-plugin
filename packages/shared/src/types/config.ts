@@ -1,11 +1,7 @@
-/*===============================================
-=         Type Definitions         =
-===============================================*/
-
 export interface LogicalField {
   key: string;
   label: string;
-  type: 'string' | 'text' | 'reference' | 'image' | 'array';
+  type: 'string' | 'text' | 'reference' | 'image' | 'array' | 'slug';
   required: boolean;
   description?: string;
 }
@@ -17,14 +13,16 @@ export interface FieldMapping {
 }
 
 export interface PluginConfig {
+  studioId: string;
   selectedSchema: string | null;
   fieldMappings: FieldMapping[];
   notionDatabaseUrl: string;
   notionClientSecret: string;
   llmApiKey: string;
-  isConnected: boolean;
-  lastTested?: Date;
+  isActive: boolean;
   errorMessage?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface SchemaField {
@@ -40,10 +38,7 @@ export interface SchemaType {
   fields: SchemaField[];
 }
 
-/*===============================================
-=         Logical Fields         =
-===============================================*/
-
+// Logical fields that the plugin supports
 export const LOGICAL_FIELDS: LogicalField[] = [
   {
     key: 'title',
@@ -62,7 +57,7 @@ export const LOGICAL_FIELDS: LogicalField[] = [
   {
     key: 'slug',
     label: 'Slug',
-    type: 'string',
+    type: 'slug',
     required: false,
     description: 'URL-friendly identifier',
   },
@@ -82,7 +77,7 @@ export const LOGICAL_FIELDS: LogicalField[] = [
   },
   {
     key: 'image',
-    label: 'Cover Image',
+    label: 'Main Image',
     type: 'image',
     required: false,
     description: 'Main/cover image',

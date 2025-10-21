@@ -1,95 +1,104 @@
-import { NextResponse } from 'next/server';
-import { NotionService } from '@/lib/notion';
-import {
-  ERROR_MESSAGES,
-  HTTP_STATUS,
-  NOTION_DEFAULTS,
-} from '@/lib/constants';
-import type { NotionStatusUpdatePayload } from '@/types/notion';
+import { NextRequest } from 'next/server';
+import { NotionService, ConfigService } from '@/lib/services';
+import { ERROR_MESSAGES, NOTION_DEFAULTS } from '@sanity-notion-llm/shared';
+import type { NotionStatusUpdate } from '@sanity-notion-llm/shared';
+import { createCorsResponse } from '@/lib/cors';
 
-export async function PATCH(request: Request) {
-  const notionApiKey = process.env.NOTION_API_KEY;
+export async function OPTIONS() {
+  return createCorsResponse({}, 200);
+}
 
-  if (!notionApiKey) {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.MISSING_API_KEY },
-      { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }
-    );
-  }
-
-  let payload: Partial<NotionStatusUpdatePayload> | undefined;
-
+export async function PATCH(request: NextRequest) {
   try {
-    payload = (await request.json()) as Partial<NotionStatusUpdatePayload>;
-  } catch {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.INVALID_PAYLOAD },
-      { status: HTTP_STATUS.BAD_REQUEST }
-    );
-  }
+    const { searchParams } = new URL(request.url);
+    const studioId = searchParams.get('studioId');
 
-  const pageId = payload?.pageId;
-  const status = payload?.status;
-  const propertyName =
-    payload?.propertyName ?? NOTION_DEFAULTS.STATUS_PROPERTY;
-
-  if (!pageId) {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.MISSING_PAGE_ID },
-      { status: HTTP_STATUS.BAD_REQUEST }
-    );
-  }
-
-  if (!status) {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.MISSING_STATUS_VALUE },
-      { status: HTTP_STATUS.BAD_REQUEST }
-    );
-  }
-
-  if (typeof propertyName !== 'string') {
-    return NextResponse.json(
-      { error: ERROR_MESSAGES.INVALID_PAYLOAD },
-      { status: HTTP_STATUS.BAD_REQUEST }
-    );
-  }
-
-  const notionService = new NotionService(notionApiKey);
-
-  try {
-    const updatedPage = await notionService.updatePageStatus(
-      pageId,
-      status,
-      propertyName
-    );
-
-    return NextResponse.json({ page: updatedPage }, { status: HTTP_STATUS.OK });
-  } catch (error) {
-    console.error('[notion-status] API error:', error);
-
-    if (error instanceof Error) {
-      if (error.message === 'NOTION_STATUS_PROPERTY_NOT_FOUND') {
-        return NextResponse.json(
-          { error: ERROR_MESSAGES.STATUS_PROPERTY_NOT_FOUND },
-          { status: HTTP_STATUS.BAD_REQUEST }
-        );
-      }
-
-      if (error.message === 'NOTION_STATUS_PROPERTY_UNSUPPORTED') {
-        return NextResponse.json(
-          { error: ERROR_MESSAGES.STATUS_PROPERTY_UNSUPPORTED },
-          { status: HTTP_STATUS.BAD_REQUEST }
-        );
-      }
+    if (!studioId) {
+      return createCorsResponse(
+        { error: ERROR_MESSAGES.STUDIO_ID_REQUIRED },
+        400
+      );
     }
 
-    return NextResponse.json(
-      {
-        error: ERROR_MESSAGES.INTERNAL_ERROR,
-        details:
-          error instanceof Error ? error.message : ERROR_MESSAGES.UNKNOWN_ERROR,
-      },
-      { status: HTTP_STATUS.INTERNAL_SERVER_ERROR }
-    );
+    // Load configuration from database
+    const config = await ConfigService.getByStudioId(studioId);
+
+    if (!config) {
+      return createCorsResponse(
+        { error: 'Configuration not found for this Studio' },
+        404
+      );
+    }
+
+    if (!config.notionClientSecret) {
+      return createCorsResponse(
+        { error: 'Notion client secret not configured' },
+        400
+      );
+    }
+
+    let payload: Partial<NotionStatusUpdate>;
+
+    try {
+      payload = await request.json();
+    } catch {
+      return createCorsResponse({ error: 'Invalid JSON payload' }, 400);
+    }
+
+    const pageId = payload?.pageId;
+    const status = payload?.status;
+    const propertyName =
+      payload?.propertyName ?? NOTION_DEFAULTS.STATUS_PROPERTY;
+
+    if (!pageId) {
+      return createCorsResponse({ error: 'Page ID is required' }, 400);
+    }
+
+    if (!status) {
+      return createCorsResponse({ error: 'Status value is required' }, 400);
+    }
+
+    const notionService = new NotionService(config.notionClientSecret);
+
+    try {
+      const updatedPage = await notionService.updatePageStatus(
+        pageId,
+        status,
+        propertyName
+      );
+
+      return createCorsResponse({ page: updatedPage });
+    } catch (error) {
+      console.error('[notion-status] API error:', error);
+
+      if (error instanceof Error) {
+        if (error.message === ERROR_MESSAGES.NOTION_STATUS_PROPERTY_NOT_FOUND) {
+          return createCorsResponse(
+            { error: 'Status property not found in Notion page' },
+            400
+          );
+        }
+
+        if (
+          error.message === ERROR_MESSAGES.NOTION_STATUS_PROPERTY_UNSUPPORTED
+        ) {
+          return createCorsResponse(
+            { error: 'Status property type is not supported' },
+            400
+          );
+        }
+      }
+
+      return createCorsResponse(
+        {
+          error: ERROR_MESSAGES.NOTION_UPDATE_FAILED,
+          details: error instanceof Error ? error.message : 'Unknown error',
+        },
+        500
+      );
+    }
+  } catch (error) {
+    console.error('[notion-status] Unexpected error:', error);
+    return createCorsResponse({ error: 'Internal server error' }, 500);
   }
 }
