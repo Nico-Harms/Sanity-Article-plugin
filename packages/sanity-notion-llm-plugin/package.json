@@ -3,7 +3,16 @@
   "version": "0.1.0",
   "description": "A reusable Sanity plugin that connects Notion tables with LLM to generate article drafts",
   "main": "dist/index.js",
+  "module": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "source": "./src/index.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "files": [
     "dist"
   ],

@@ -1,18 +1,28 @@
 # Sanity Notion LLM Plugin
 
-A reusable Sanity plugin that connects Notion tables with LLM to generate article drafts. This monorepo contains a Next.js backend for Notion integration and a Sanity Studio that consumes the plugin.
+A reusable Sanity plugin that connects Notion tables with LLM to generate article drafts. This monorepo contains a Next.js backend for Notion integration, a Sanity Studio that consumes the plugin, and a frontend blog to display content.
 
 ## Project Structure
 
 ```
 ├── apps/
 │   ├── backend/          # Next.js API backend (server-side only)
-│   └── studio/           # Sanity Studio consuming the plugin
+│   ├── studio/           # Sanity Studio consuming the plugin
+│   │   └── plugin-project/  # Actual Sanity Studio project
+│   └── frontend/         # Next.js blog frontend (customer-facing)
 ├── packages/
 │   └── sanity-notion-llm-plugin/  # Reusable Sanity plugin
 ├── package.json          # Root workspace configuration
 └── tsconfig.json         # TypeScript configuration
 ```
+
+## Current Status
+
+✅ **Backend**: Notion API integration working  
+✅ **Studio**: Sanity Studio with plugin loading  
+✅ **Frontend**: Blog displaying Sanity content  
+✅ **Plugin**: Basic plugin structure created  
+🔄 **Next**: Connect all components together
 
 ## Quick Start
 
@@ -38,18 +48,30 @@ NOTION_API_KEY=secret_your_notion_integration_token
 NOTION_DATABASE_ID=your_database_id_here
 ```
 
-### 3. Start Development Server
+### 3. Start Development Servers
 
 ```bash
-# Start the backend
-npm run dev
-
-# Or start from the backend directory
+# Start the backend (Notion API)
 cd apps/backend
 npm run dev
+# Available at http://localhost:3001
+
+# Start the Studio (content management)
+cd apps/studio/plugin-project
+npm run dev
+# Available at http://localhost:3333
+
+# Start the frontend (blog)
+cd apps/frontend
+npm run dev
+# Available at http://localhost:3000
 ```
 
-The backend will be available at http://localhost:3001
+## Development URLs
+
+- **Backend API**: http://localhost:3001
+- **Sanity Studio**: http://localhost:3333
+- **Blog Frontend**: http://localhost:3000
 
 ## API Endpoints
 
@@ -134,44 +156,81 @@ npm run build
 
 ## Tech Stack
 
-- **Backend**: Next.js 14 (App Router), TypeScript
-- **APIs**: Notion API
-- **Styling**: Tailwind CSS v4 (no config files needed!)
+- **Backend**: Next.js 15 (App Router), TypeScript
+- **Studio**: Sanity v3, React, @sanity/ui
+- **Frontend**: Next.js 15, React, Tailwind CSS v4
+- **APIs**: Notion API, Sanity API
+- **Styling**: Tailwind CSS v4 (PostCSS plugin approach)
 
 ## Architecture
 
-Simple and focused:
+Clean separation of concerns:
 
-1. **Notion Integration**: Fetches content from Notion databases
-2. **Data Transformation**: Converts Notion properties to readable format
-3. **Clean API**: Returns structured JSON for easy consumption
+1. **Backend** (`apps/backend`): Server-side API for Notion integration
+
+   - Handles Notion API calls
+   - Transforms data for consumption
+   - Provides REST endpoints
+
+2. **Studio** (`apps/studio/plugin-project`): Content management interface
+
+   - Sanity Studio for content editing
+   - Plugin integration for Notion workflow
+   - Multi-tenant API key management
+
+3. **Frontend** (`apps/frontend`): Customer-facing blog
+
+   - Displays Sanity content
+   - Responsive design with Tailwind v4
+   - Static generation for performance
+
+4. **Plugin** (`packages/sanity-notion-llm-plugin`): Reusable Sanity tool
+   - Custom Studio tool for Notion integration
+   - Configurable for different projects
+   - Handles API key encryption/decryption
 
 ## Testing
 
-1. Start the backend: `npm run dev`
-2. Test the Notion table endpoint: `GET http://localhost:3001/api/notion/table`
+### Backend API Testing
+
+1. Start the backend: `cd apps/backend && npm run dev`
+2. Test Notion table: `GET http://localhost:3001/api/notion/table`
 3. Test status update: `PATCH http://localhost:3001/api/notion/status` with JSON body
-4. Verify data structure matches your Notion database
 
-## Development
+### Studio Testing
 
-### Backend Development
+1. Start the Studio: `cd apps/studio/plugin-project && npm run dev`
+2. Visit http://localhost:3333
+3. Verify "Notion LLM" plugin appears in navigation
+4. Create/edit blog posts in the Studio
+
+### Frontend Testing
+
+1. Start the frontend: `cd apps/frontend && npm run dev`
+2. Visit http://localhost:3000
+3. Verify blog posts from Sanity are displayed
+4. Test individual post pages
+
+## Development Commands
 
 ```bash
-cd apps/backend
-npm run dev
-```
+# Backend development
+cd apps/backend && npm run dev
 
-### Studio Development
+# Studio development
+cd apps/studio/plugin-project && npm run dev
 
-```bash
-cd apps/studio
-npm run dev
+# Frontend development
+cd apps/frontend && npm run dev
+
+# Plugin development
+cd packages/sanity-notion-llm-plugin && npm run dev
 ```
 
 ## Next Steps
 
-- Build Sanity plugin with @sanity/plugin-kit
-- Create Studio app that consumes the plugin
-- Add encrypted API key storage in Sanity
-- Integrate LLM wrapper for content generation
+- [ ] Connect plugin to backend API
+- [ ] Add encrypted API key storage in Sanity
+- [ ] Implement Notion data display in Studio
+- [ ] Add LLM integration for content generation
+- [ ] Create field mapping between Notion and Sanity
