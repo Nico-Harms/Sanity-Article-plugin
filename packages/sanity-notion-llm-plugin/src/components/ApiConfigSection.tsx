@@ -1,12 +1,14 @@
-import { Card, Text, TextInput, Box, Stack, Button } from '@sanity/ui';
+import { Card, Text, TextInput, Box, Stack, Button, Select } from '@sanity/ui';
 
 interface ApiConfigSectionProps {
   notionDatabaseUrl: string;
   notionClientSecret: string;
   llmApiKey: string;
+  llmModel: string;
   onNotionDatabaseUrlChange: (value: string) => void;
   onNotionClientSecretChange: (value: string) => void;
   onLlmApiKeyChange: (value: string) => void;
+  onLlmModelChange: (value: string) => void;
   onSaveConfiguration: () => void;
   onTestConnection: () => void;
   isSaving: boolean;
@@ -21,9 +23,11 @@ export function ApiConfigSection({
   notionDatabaseUrl,
   notionClientSecret,
   llmApiKey,
+  llmModel,
   onNotionDatabaseUrlChange,
   onNotionClientSecretChange,
   onLlmApiKeyChange,
+  onLlmModelChange,
   onSaveConfiguration,
   onTestConnection,
   isSaving,
@@ -89,6 +93,25 @@ export function ApiConfigSection({
           />
           <Text size={1} muted style={{ marginTop: 4 }}>
             Your OpenAI or other LLM provider API key - Optional for now
+          </Text>
+        </Box>
+
+        {/* LLM Model Selection */}
+        <Box>
+          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
+            LLM Model
+          </Text>
+          <Select
+            value={llmModel}
+            onChange={(event) => onLlmModelChange(event.currentTarget.value)}
+          >
+            <option value="mistral-large-latest">Mistral Large</option>
+            <option value="mistral-medium-latest">Mistral Medium</option>
+            <option value="gpt-4">GPT-4</option>
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          </Select>
+          <Text size={1} muted style={{ marginTop: 4 }}>
+            Choose the LLM model for content generation
           </Text>
         </Box>
 

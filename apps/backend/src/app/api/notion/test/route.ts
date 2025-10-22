@@ -1,4 +1,3 @@
-import { NextRequest } from 'next/server';
 import { createNotionClient } from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
 
@@ -13,7 +12,7 @@ export async function OPTIONS() {
   return createCorsPreflightResponse();
 }
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     // Use environment variables directly
     const clientSecret = process.env.NOTION_API_KEY;

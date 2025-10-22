@@ -1,4 +1,8 @@
-import type { PluginConfig } from '@sanity-notion-llm/shared';
+import type {
+  PluginConfig,
+  GenerateRequest,
+  GenerateResponse,
+} from '@sanity-notion-llm/shared';
 
 const BACKEND_URL =
   process.env.SANITY_STUDIO_BACKEND_URL || 'http://localhost:3001';
@@ -10,6 +14,7 @@ export interface ApiResponse<T = any> {
   database?: any;
   pages?: any[];
   page?: any;
+  draft?: any;
 }
 
 export class ApiClient {
@@ -69,5 +74,27 @@ export class ApiClient {
       method: 'PATCH',
       body: JSON.stringify({ pageId, status, propertyName }),
     });
+  }
+
+  static async generateDraft(
+    studioId: string,
+    notionPageId: string
+  ): Promise<GenerateResponse> {
+    const request: GenerateRequest = {
+      studioId,
+      notionPageId,
+    };
+
+    const response = await this.makeRequest<GenerateResponse>('/api/generate', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+
+    // Extract the GenerateResponse from the ApiResponse wrapper
+    return {
+      success: response.success || false,
+      draft: response.draft,
+      error: response.error,
+    };
   }
 }

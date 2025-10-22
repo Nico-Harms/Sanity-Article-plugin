@@ -18,6 +18,7 @@ import {
   ApiConfigSection,
   ConnectionStatus,
   TabbedInterface,
+  GenerationSection,
 } from '../components';
 
 // No debounce utility needed - using useEffectEvent instead
@@ -37,6 +38,7 @@ const createEmptyConfig = (studioId: string): PluginConfig => ({
   notionDatabaseUrl: '',
   notionClientSecret: '',
   llmApiKey: '',
+  llmModel: 'mistral-large-latest',
   isActive: true,
 });
 
@@ -56,6 +58,13 @@ export function NotionLLMTool() {
     loadConfiguration();
     loadSchemaTypes();
   }, [projectId]);
+
+  // Load Notion data when config is available
+  useEffect(() => {
+    if (config?.notionDatabaseUrl && config?.notionClientSecret) {
+      handleLoadNotionData();
+    }
+  }, [config?.notionDatabaseUrl, config?.notionClientSecret]);
 
   const updateConfig = (
     updater: (current: PluginConfig) => PluginConfig
@@ -330,6 +339,7 @@ export function NotionLLMTool() {
         notionDatabaseUrl={config?.notionDatabaseUrl || ''}
         notionClientSecret={config?.notionClientSecret || ''}
         llmApiKey={config?.llmApiKey || ''}
+        llmModel={config?.llmModel || 'mistral-large-latest'}
         onNotionDatabaseUrlChange={(value) =>
           updateConfig((current) => ({
             ...current,
@@ -346,6 +356,12 @@ export function NotionLLMTool() {
           updateConfig((current) => ({
             ...current,
             llmApiKey: value,
+          }))
+        }
+        onLlmModelChange={(value) =>
+          updateConfig((current) => ({
+            ...current,
+            llmModel: value,
           }))
         }
         onSaveConfiguration={saveConfiguration}
@@ -371,72 +387,14 @@ export function NotionLLMTool() {
   );
 
   const generateTabContent = (
-    <Stack space={4}>
-      <Text size={2} weight="medium">
-        Content Generation
-      </Text>
-
-      <Text size={1} muted>
-        Configure your field mappings and API settings, then generate content
-        from your Notion database.
-      </Text>
-
-      {/* Load Notion Data Button */}
-      <Box>
-        <Button
-          text="Load Notion Data"
-          tone="default"
-          mode="ghost"
-          onClick={handleLoadNotionData}
-          loading={loading}
-          disabled={!config?.notionDatabaseUrl || !config?.notionClientSecret}
-        />
-      </Box>
-
-      {/* Notion Data Display */}
-      {notionData && (
-        <Card padding={3} border>
-          <Stack space={3}>
-            <Text size={2} weight="medium">
-              Notion Database: {notionData.database.title}
-            </Text>
-            <Text size={1} muted>
-              Found {notionData.pages.length} pages
-            </Text>
-            {notionData.pages.slice(0, 3).map((page: any, index: number) => (
-              <Card key={index} padding={2} tone="transparent" border>
-                <Text size={1} weight="medium">
-                  {page.title}
-                </Text>
-              </Card>
-            ))}
-          </Stack>
-        </Card>
-      )}
-
-      {/* Generate Button */}
-      <Box>
-        <Button
-          text="Generate Content from Notion"
-          tone="primary"
-          disabled={!config?.selectedSchema || loading}
-          loading={loading}
-          onClick={handleGenerateContent}
-        />
-      </Box>
-
-      {/* Debug Info - Development Only */}
-      {process.env.NODE_ENV === 'development' && (
-        <Card padding={3} tone="transparent" border>
-          <Text size={1} weight="medium">
-            Debug Info
-          </Text>
-          <Text size={1} style={{ fontFamily: 'monospace' }}>
-            {JSON.stringify(config, null, 2)}
-          </Text>
-        </Card>
-      )}
-    </Stack>
+    <GenerationSection
+      studioId={projectId}
+      notionPages={notionData?.pages || []}
+      onGenerationComplete={(draft) => {
+        console.log('Generated draft:', draft);
+        // TODO: Handle the generated draft (e.g., create Sanity document)
+      }}
+    />
   );
 
   const tabs = [

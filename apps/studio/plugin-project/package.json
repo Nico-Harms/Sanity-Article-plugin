@@ -15,13 +15,13 @@
     "sanity"
   ],
   "dependencies": {
-    "@sanity/vision": "^4.10.3",
+    "@sanity-notion-llm/shared": "file:../../../packages/shared",
+    "@sanity/vision": "^4.11.0",
     "react": "^19.1",
     "react-dom": "^19.1",
-    "sanity": "^4.10.3",
-    "styled-components": "^6.1.18",
+    "sanity": "^4.11.0",
     "sanity-notion-llm-plugin": "file:../../../packages/sanity-notion-llm-plugin",
-    "@sanity-notion-llm/shared": "file:../../../packages/shared"
+    "styled-components": "^6.1.18"
   },
   "devDependencies": {
     "@sanity/eslint-config-studio": "^5.0.2",

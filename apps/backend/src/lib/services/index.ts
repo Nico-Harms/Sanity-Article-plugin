@@ -18,3 +18,4 @@ export {
 } from './ConfigService';
 export { encryptSecret, decryptSecret } from './EncryptionService';
 export { createNotionClient } from './NotionService';
+export { LLMService, createLLMService } from './LLMService';

@@ -19,6 +19,7 @@ export interface PluginConfig {
   notionDatabaseUrl: string;
   notionClientSecret: string;
   llmApiKey: string;
+  llmModel: string;
   isActive: boolean;
   errorMessage?: string;
   createdAt?: Date;
