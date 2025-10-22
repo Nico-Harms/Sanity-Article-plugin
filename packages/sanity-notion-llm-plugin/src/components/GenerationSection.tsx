@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Card, Text, Box, Stack, Button, Select, Flex } from '@sanity/ui';
 import { ApiClient } from '../services/apiClient';
 import type { SanityDraftData } from '@sanity-notion-llm/shared';
+import { extractPageDisplayText } from '@sanity-notion-llm/shared';
 
 interface GenerationSectionProps {
   studioId: string;
@@ -66,7 +67,7 @@ export function GenerationSection({
           article draft using AI.
         </Text>
 
-        {/* Page Selection */}
+        {/* Page Selection THIS PAGE WILL BE DELETED IN PHASE 2   */}
         <Box>
           <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
             Select Notion Page
@@ -82,18 +83,14 @@ export function GenerationSection({
                 : 'Choose a page...'}
             </option>
             {notionPages.map((page) => (
-              <option key={page.content || page.id} value={page.id}>
-                {page.content || `Page ${page.id.slice(0, 8)}`}
+              <option key={page.id} value={page.id}>
+                {extractPageDisplayText(page.content || {})}
               </option>
             ))}
           </Select>
           {selectedPage && (
             <Text size={1} muted style={{ marginTop: 4 }}>
-              Selected:{' '}
-              {selectedPage.properties?.Name?.title?.[0]?.plain_text ||
-                selectedPage.properties?.Title?.title?.[0]?.plain_text ||
-                selectedPage.properties?.Subject?.title?.[0]?.plain_text ||
-                'Untitled page'}
+              Selected: {extractPageDisplayText(selectedPage.content || {})}
             </Text>
           )}
         </Box>

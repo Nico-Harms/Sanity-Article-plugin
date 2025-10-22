@@ -146,60 +146,22 @@ Generate the article now:`;
     response: string,
     fieldMappings: FieldMapping[]
   ): SanityDraftData {
+    // Clean the response - remove markdown code blocks
+    const cleanedResponse = response
+      .replace(/```json\n?/g, '')
+      .replace(/```\n?/g, '')
+      .trim();
+
+    // Try to extract and parse JSON
+    const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No valid JSON found in response');
+    }
+
     try {
-      // Clean the response - remove any markdown code blocks
-      let cleanedResponse = response
-        .replace(/```json\n?/g, '')
-        .replace(/```\n?/g, '')
-        .trim();
+      const parsed = JSON.parse(jsonMatch[0]);
 
-      // Handle incomplete JSON by trying to fix common issues
-      if (!cleanedResponse.endsWith('}')) {
-        // If response is cut off, try to find the last complete field
-        const lastCompleteField = cleanedResponse.lastIndexOf('",');
-        if (lastCompleteField > 0) {
-          cleanedResponse =
-            cleanedResponse.substring(0, lastCompleteField + 1) + '}';
-        } else {
-          // If no complete fields found, add a basic structure
-          cleanedResponse = cleanedResponse + '"}';
-        }
-      }
-
-      // Try to parse JSON, with fallback for control character issues
-      let parsed;
-      try {
-        parsed = JSON.parse(cleanedResponse);
-      } catch (error) {
-        // If JSON parsing fails due to control characters, try to fix them
-        console.log(
-          '[llm-service] JSON parse failed, attempting to fix control characters...'
-        );
-
-        // Use a more robust approach - try to extract JSON from the response
-        const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          const jsonString = jsonMatch[0];
-          try {
-            // Try parsing the extracted JSON
-            parsed = JSON.parse(jsonString);
-          } catch (secondError) {
-            // If still failing, create a minimal valid response
-            console.log(
-              '[llm-service] JSON extraction failed, creating fallback response'
-            );
-            parsed = {
-              title: 'Generated Article',
-              body: 'Content generation completed but JSON parsing failed. Please try again.',
-              slug: { current: 'generated-article' },
-            };
-          }
-        } else {
-          throw new Error('No valid JSON found in response');
-        }
-      }
-
-      // Validate that all enabled fields are present
+      // Validate required fields
       const enabledMappings = fieldMappings.filter(
         (mapping) => mapping.enabled
       );
@@ -215,8 +177,7 @@ Generate the article now:`;
 
       return parsed as SanityDraftData;
     } catch (error) {
-      console.error('[llm-service] Failed to parse LLM response:', error);
-      console.error('[llm-service] Raw response:', response);
+      console.error('[llm-service] JSON parsing failed:', error);
       throw new Error(
         `Failed to parse LLM response: ${error instanceof Error ? error.message : 'Invalid JSON'}`
       );

@@ -17,5 +17,9 @@ export {
   initializeConfigDatabase,
 } from './ConfigService';
 export { encryptSecret, decryptSecret } from './EncryptionService';
-export { createNotionClient } from './NotionService';
+export {
+  createNotionClient,
+  extractContentFromProperties,
+  extractSubjectFromProperties,
+} from './NotionService';
 export { LLMService, createLLMService } from './LLMService';

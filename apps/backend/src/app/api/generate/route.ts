@@ -4,6 +4,8 @@ import {
   getConfigByStudioId,
   createLLMService,
   decryptSecret,
+  extractContentFromProperties,
+  extractSubjectFromProperties,
 } from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
 import type {
@@ -129,87 +131,4 @@ export async function POST(request: NextRequest) {
  */
 export async function OPTIONS() {
   return createCorsPreflightResponse();
-}
-
-/**
- * Extract main content from Notion page properties
- * Looks for common content fields like "Content", "Body", "Description", etc.
- */
-function extractContentFromProperties(properties: Record<string, any>): string {
-  const contentFields = [
-    'Content ',
-    'Content',
-    'Body',
-    'Description',
-    'Text',
-    'Notes',
-  ];
-
-  for (const field of contentFields) {
-    const property = properties[field];
-    if (property) {
-      // Handle different Notion property types
-      if (property.type === 'rich_text' && property.rich_text) {
-        return property.rich_text.map((text: any) => text.plain_text).join(' ');
-      }
-      if (property.type === 'title' && property.title) {
-        return property.title.map((text: any) => text.plain_text).join(' ');
-      }
-      if (property.type === 'text' && property.text) {
-        return property.text.map((text: any) => text.plain_text).join(' ');
-      }
-    }
-  }
-
-  // Fallback: return first available text content
-  for (const [, property] of Object.entries(properties)) {
-    if (property && typeof property === 'object') {
-      if (property.rich_text && property.rich_text.length > 0) {
-        return property.rich_text.map((text: any) => text.plain_text).join(' ');
-      }
-      if (property.title && property.title.length > 0) {
-        return property.title.map((text: any) => text.plain_text).join(' ');
-      }
-    }
-  }
-
-  return 'No content found';
-}
-
-/**
- * Extract subject/topic from Notion page properties
- * Looks for common subject fields like "Subject", "Topic", "Title", etc.
- */
-function extractSubjectFromProperties(properties: Record<string, any>): string {
-  const subjectFields = ['Subject', 'Topic', 'Title', 'Name', 'Headline'];
-
-  for (const field of subjectFields) {
-    const property = properties[field];
-    if (property) {
-      // Handle different Notion property types
-      if (property.type === 'title' && property.title) {
-        return property.title.map((text: any) => text.plain_text).join(' ');
-      }
-      if (property.type === 'rich_text' && property.rich_text) {
-        return property.rich_text.map((text: any) => text.plain_text).join(' ');
-      }
-      if (property.type === 'text' && property.text) {
-        return property.text.map((text: any) => text.plain_text).join(' ');
-      }
-    }
-  }
-
-  // Fallback: return first available title content
-  for (const [, property] of Object.entries(properties)) {
-    if (
-      property &&
-      property.type === 'title' &&
-      property.title &&
-      property.title.length > 0
-    ) {
-      return property.title.map((text: any) => text.plain_text).join(' ');
-    }
-  }
-
-  return 'Untitled';
 }
