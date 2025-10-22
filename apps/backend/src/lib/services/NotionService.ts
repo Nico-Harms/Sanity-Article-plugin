@@ -6,9 +6,17 @@ import type {
 import type { NotionPage, NotionDatabase } from '@sanity-notion-llm/shared';
 import { NOTION_DEFAULTS, ERROR_MESSAGES } from '@sanity-notion-llm/shared';
 
+/*===============================================
+=          Is full page response           =
+===============================================*/
+
 const isFullPageResponse = (
   response: GetPageResponse
 ): response is PageObjectResponse => 'properties' in response;
+
+/*===============================================
+=          Extract property value           =
+===============================================*/
 
 const extractPropertyValue = (property: any): any => {
   if (!property || !property.type) return null;
@@ -35,6 +43,10 @@ const extractPropertyValue = (property: any): any => {
   }
 };
 
+/*===============================================
+=          Format database id           =
+===============================================*/
+
 const formatDatabaseId = (databaseId: string): string => {
   if (databaseId.includes('-')) return databaseId;
   if (databaseId.length !== 32) return databaseId;
@@ -48,8 +60,51 @@ const formatDatabaseId = (databaseId: string): string => {
   ].join('-');
 };
 
-export const createNotionClient = (apiKey: string) => {
+/*===============================================
+=          Map notion page           =
+===============================================*/
+
+const mapNotionPage = (page: PageObjectResponse): NotionPage => {
+  const title =
+    extractPropertyValue(page.properties?.Name || page.properties?.Title) ||
+    NOTION_DEFAULTS.UNTITLED_PAGE;
+
+  const properties = Object.keys(page.properties || {}).reduce<
+    Record<string, unknown>
+  >((acc, key) => {
+    acc[key] = extractPropertyValue(page.properties[key]);
+    return acc;
+  }, {});
+
+  return {
+    id: page.id,
+    url: page.url,
+    title,
+    properties,
+  };
+};
+
+/*===============================================
+=          Create notion client           =
+===============================================*/
+
+export interface NotionClient {
+  testConnection(): Promise<{ success: boolean; message: string }>;
+  getDatabase(databaseId: string): Promise<NotionDatabase | null>;
+  queryDatabase(databaseId: string, pageSize?: number): Promise<NotionPage[]>;
+  updatePageStatus(
+    pageId: string,
+    status: string,
+    propertyName?: string
+  ): Promise<NotionPage | null>;
+}
+
+export const createNotionClient = (apiKey: string): NotionClient => {
   const client = new Client({ auth: apiKey });
+
+  /*===============================================
+  =          Test connection           =
+  ===============================================*/
 
   const testConnection = async (): Promise<{
     success: boolean;
@@ -69,6 +124,10 @@ export const createNotionClient = (apiKey: string) => {
     }
   };
 
+  /*===============================================
+  =          Get database           =
+  ===============================================*/
+
   const getDatabase = async (
     databaseId: string
   ): Promise<NotionDatabase | null> => {
@@ -81,13 +140,22 @@ export const createNotionClient = (apiKey: string) => {
       return {
         id: response.id,
         title: (response as any).title || 'Untitled Database',
-        properties: Object.keys((response as any).properties || {}),
+        properties: Object.keys((response as any).properties || {}).reduce<
+          Record<string, unknown>
+        >((acc, key) => {
+          acc[key] = (response as any).properties[key];
+          return acc;
+        }, {}),
       };
     } catch (error) {
       console.error('[notion] Failed to get database:', error);
       return null;
     }
   };
+
+  /*===============================================
+  =          Query database           =
+  ===============================================*/
 
   const queryDatabase = async (
     databaseId: string,
@@ -100,21 +168,9 @@ export const createNotionClient = (apiKey: string) => {
         page_size: pageSize,
       });
 
-      return response.results.map((page: any) => ({
-        id: page.id,
-        url: page.url,
-        title:
-          extractPropertyValue(
-            page.properties?.Name || page.properties?.Title
-          ) || NOTION_DEFAULTS.UNTITLED_PAGE,
-        properties: Object.keys(page.properties).reduce(
-          (acc: Record<string, unknown>, key: string) => {
-            acc[key] = extractPropertyValue(page.properties[key]);
-            return acc;
-          },
-          {}
-        ),
-      }));
+      return response.results
+        .filter((page): page is PageObjectResponse => 'properties' in page)
+        .map((page) => mapNotionPage(page));
     } catch (error) {
       console.error('[notion] Failed to query database:', error);
       return [];
@@ -165,20 +221,10 @@ export const createNotionClient = (apiKey: string) => {
 
       const updatedProperties = updatedPage.properties as Record<string, any>;
 
-      return {
-        id: updatedPage.id,
-        url: updatedPage.url,
-        title:
-          extractPropertyValue(
-            updatedProperties?.Name || updatedProperties?.Title
-          ) || NOTION_DEFAULTS.UNTITLED_PAGE,
-        properties: Object.keys(updatedProperties).reduce<
-          Record<string, unknown>
-        >((acc, key) => {
-          acc[key] = extractPropertyValue(updatedProperties[key]);
-          return acc;
-        }, {}),
-      };
+      return mapNotionPage({
+        ...updatedPage,
+        properties: updatedProperties,
+      } as PageObjectResponse);
     } catch (error) {
       console.error('[notion] Failed to update status:', error);
       throw error;

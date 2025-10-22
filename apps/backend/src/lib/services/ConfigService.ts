@@ -7,16 +7,28 @@ import {
 import type { PluginConfig } from '@sanity-notion-llm/shared';
 import { ERROR_MESSAGES } from '@sanity-notion-llm/shared';
 
+/*===============================================
+=          To plugin config           =
+===============================================*/
+
 const toPluginConfig = (record: ConfigRecord | null): PluginConfig | null => {
   if (!record) return null;
   const { _id, ...pluginConfig } = record;
   return pluginConfig;
 };
 
+/*===============================================
+=          Get configs           =
+===============================================*/
+
 const getConfigs = async () => {
   const db = await connectToDatabase();
   return getConfigsCollection(db);
 };
+
+/*===============================================
+=          Get config by studio id           =
+===============================================*/
 
 export const getConfigByStudioId = async (
   studioId: string
@@ -33,6 +45,10 @@ export const getConfigByStudioId = async (
     throw new Error(ERROR_MESSAGES.CONFIG_LOAD_FAILED);
   }
 };
+
+/*===============================================
+=          Save plugin config           =
+===============================================*/
 
 export const savePluginConfig = async (
   config: PluginConfig
@@ -71,6 +87,10 @@ export const savePluginConfig = async (
   }
 };
 
+/*===============================================
+=          Get active configs           =
+===============================================*/
+
 export const getActiveConfigs = async (): Promise<PluginConfig[]> => {
   try {
     const configs = await getConfigs();
@@ -87,6 +107,10 @@ export const getActiveConfigs = async (): Promise<PluginConfig[]> => {
   }
 };
 
+/*===============================================
+=          Delete config by studio id           =
+===============================================*/
+
 export const deleteConfigByStudioId = async (
   studioId: string
 ): Promise<boolean> => {
@@ -102,6 +126,10 @@ export const deleteConfigByStudioId = async (
     throw new Error('Failed to delete configuration');
   }
 };
+
+/*===============================================
+=          Initialize config database           =
+===============================================*/
 
 export const initializeConfigDatabase = async (): Promise<void> => {
   try {

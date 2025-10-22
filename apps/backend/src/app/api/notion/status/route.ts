@@ -1,5 +1,9 @@
 import { NextRequest } from 'next/server';
-import { createNotionClient, getConfigByStudioId } from '@/lib/services';
+import {
+  createNotionClient,
+  getConfigByStudioId,
+  decryptSecret,
+} from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
 
 /**
@@ -48,7 +52,15 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const notionService = createNotionClient(config.notionClientSecret);
+    const decryptedApiKey = decryptSecret(config.notionClientSecret);
+    const notionService = createNotionClient(decryptedApiKey);
+
+    /**
+     * Status usage guide:
+     * - "In Progress": call this endpoint when a generation job starts so Notion reflects the active work.
+     * - "Published": call it after successfully syncing content into Sanity to mark the page as completed.
+     * - "Failed": call it if the job errors so the page is flagged for follow-up inside Notion.
+     */
     const updatedPage = await notionService.updatePageStatus(
       pageId,
       status,
