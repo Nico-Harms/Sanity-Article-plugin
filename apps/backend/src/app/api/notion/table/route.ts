@@ -1,14 +1,17 @@
 import { NextRequest } from 'next/server';
-import { NotionService, ConfigService } from '@/lib/services';
-import { ERROR_MESSAGES } from '@sanity-notion-llm/shared';
-import { createCorsResponse } from '@/lib/cors';
+import {
+  createNotionClient,
+  getConfigByStudioId,
+  decryptSecret,
+} from '@/lib/services';
+import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
 
 /*===============================================
-|=          Notion table API route           =
+=          NOTION TABLE API           =
 ===============================================*/
 
 export async function OPTIONS() {
-  return createCorsResponse({}, 200);
+  return createCorsPreflightResponse();
 }
 
 export async function GET(request: NextRequest) {
@@ -17,14 +20,11 @@ export async function GET(request: NextRequest) {
     const studioId = searchParams.get('studioId');
 
     if (!studioId) {
-      return createCorsResponse(
-        { error: ERROR_MESSAGES.STUDIO_ID_REQUIRED },
-        400
-      );
+      return createCorsResponse({ error: 'studioId is required' }, 400);
     }
 
     // Load configuration from database
-    const config = await ConfigService.getByStudioId(studioId);
+    const config = await getConfigByStudioId(studioId);
 
     if (!config) {
       return createCorsResponse(
@@ -40,27 +40,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Extract database ID from URL
-    const databaseId = config.notionDatabaseUrl.split('/').pop()?.split('?')[0];
+    // Use the database ID directly (it's already just the ID, not a URL)
+    const databaseId = config.notionDatabaseUrl;
 
-    if (!databaseId) {
-      return createCorsResponse({ error: 'Invalid Notion database URL' }, 400);
-    }
+    // Decrypt the API key before using it
+    const decryptedApiKey = decryptSecret(config.notionClientSecret);
+    const notionService = createNotionClient(decryptedApiKey);
 
-    const notionService = new NotionService(config.notionClientSecret);
-
-    // Get database info
-    const database = await notionService.getDatabase(databaseId);
+    // Get database info and pages
+    const [database, pages] = await Promise.all([
+      notionService.getDatabase(databaseId),
+      notionService.queryDatabase(databaseId, 100),
+    ]);
 
     if (!database) {
-      return createCorsResponse(
-        { error: ERROR_MESSAGES.NOTION_DATABASE_NOT_FOUND },
-        404
-      );
+      return createCorsResponse({ error: 'Database not found' }, 404);
     }
-
-    // Query pages
-    const pages = await notionService.queryDatabase(databaseId, 100);
 
     return createCorsResponse({
       database: {
@@ -72,12 +67,8 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('[notion-table] API error:', error);
-
     return createCorsResponse(
-      {
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error',
-      },
+      { error: error instanceof Error ? error.message : 'Unknown error' },
       500
     );
   }

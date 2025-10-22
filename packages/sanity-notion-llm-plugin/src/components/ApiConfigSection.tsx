@@ -7,7 +7,9 @@ interface ApiConfigSectionProps {
   onNotionDatabaseUrlChange: (value: string) => void;
   onNotionClientSecretChange: (value: string) => void;
   onLlmApiKeyChange: (value: string) => void;
+  onSaveConfiguration: () => void;
   onTestConnection: () => void;
+  isSaving: boolean;
   isTesting: boolean;
 }
 
@@ -22,7 +24,9 @@ export function ApiConfigSection({
   onNotionDatabaseUrlChange,
   onNotionClientSecretChange,
   onLlmApiKeyChange,
+  onSaveConfiguration,
   onTestConnection,
+  isSaving,
   isTesting,
 }: ApiConfigSectionProps) {
   return (
@@ -33,24 +37,24 @@ export function ApiConfigSection({
         </Text>
 
         <Text size={1} muted>
-          Configure your Notion and LLM API credentials to enable content
-          generation.
+          Configure your Notion API credentials to connect to your database. LLM
+          configuration is optional for now.
         </Text>
 
-        {/* Notion Database URL */}
+        {/* Notion Database ID */}
         <Box>
           <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
-            Notion Database URL
+            Notion Database ID
           </Text>
           <TextInput
-            placeholder="https://www.notion.so/your-workspace/database-id"
+            placeholder="2849c9a7e45e81e0a190c25132ee5c75"
             value={notionDatabaseUrl}
             onChange={(event) =>
               onNotionDatabaseUrlChange(event.currentTarget.value)
             }
           />
           <Text size={1} muted style={{ marginTop: 4 }}>
-            The full URL to your Notion database containing your content plan
+            The database ID from your Notion database URL (just the ID part)
           </Text>
         </Box>
 
@@ -72,33 +76,42 @@ export function ApiConfigSection({
           </Text>
         </Box>
 
-        {/* LLM API Key */}
+        {/* LLM API Key - Optional */}
         <Box>
           <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
-            LLM API Key
+            LLM API Key (Optional)
           </Text>
           <TextInput
             type="password"
-            placeholder="sk-..."
+            placeholder="sk-... (optional for now)"
             value={llmApiKey}
             onChange={(event) => onLlmApiKeyChange(event.currentTarget.value)}
           />
           <Text size={1} muted style={{ marginTop: 4 }}>
-            Your OpenAI or other LLM provider API key
+            Your OpenAI or other LLM provider API key - Optional for now
           </Text>
         </Box>
 
-        {/* Test Connection Button */}
+        {/* Save and Test Buttons */}
         <Box>
-          <Button
-            text="Test Connection"
-            tone="primary"
-            disabled={!notionDatabaseUrl || !notionClientSecret || isTesting}
-            loading={isTesting}
-            onClick={onTestConnection}
-          />
-          <Text size={1} muted style={{ marginTop: 4 }}>
-            Verify your credentials and database access
+          <Stack space={3}>
+            <Button
+              text="Save Configuration"
+              tone="default"
+              disabled={!notionDatabaseUrl || !notionClientSecret || isSaving}
+              loading={isSaving}
+              onClick={onSaveConfiguration}
+            />
+            <Button
+              text="Test Connection"
+              tone="primary"
+              disabled={!notionDatabaseUrl || !notionClientSecret || isTesting}
+              loading={isTesting}
+              onClick={onTestConnection}
+            />
+          </Stack>
+          <Text size={1} muted style={{ marginTop: 8 }}>
+            Save your credentials first, then test the connection
           </Text>
         </Box>
       </Stack>

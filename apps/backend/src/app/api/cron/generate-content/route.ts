@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ConfigService } from '@/lib/services';
+import { getActiveConfigs } from '@/lib/services';
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     //    - Create Sanity documents
     //    - Update Notion page status
 
-    const activeConfigs = await ConfigService.getAllActive();
+    const activeConfigs = await getActiveConfigs();
     console.log(`[cron] Found ${activeConfigs.length} active configurations`);
 
     // Placeholder response

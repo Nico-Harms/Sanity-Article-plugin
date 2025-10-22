@@ -1,58 +1,59 @@
-import bcrypt from 'bcryptjs';
+import crypto from 'node:crypto';
 import { ERROR_MESSAGES } from '@sanity-notion-llm/shared';
 
-export class EncryptionService {
-  private static readonly SALT_ROUNDS = 12;
+/**
+ * Symmetric encryption helpers using AES-256-GCM.
+ *
+ * We derive a 32-byte key from ENCRYPTION_SECRET via SHA-256 hashing.
+ * Ciphertext is encoded as three base64 segments (iv:cipher:authTag).
+ */
+const ALGORITHM = 'aes-256-gcm';
+const IV_LENGTH = 12; // recommended length for GCM
 
-  static encrypt(text: string): string {
-    const secret = process.env.ENCRYPTION_SECRET;
-    if (!secret) {
-      throw new Error(ERROR_MESSAGES.ENCRYPTION_SECRET_NOT_SET);
-    }
-
-    try {
-      // Combine the text with the secret before hashing
-      const combined = text + secret;
-      return bcrypt.hashSync(combined, this.SALT_ROUNDS);
-    } catch (error) {
-      console.error('[encryption] Failed to encrypt text:', error);
-      throw new Error('Encryption failed');
-    }
+const getEncryptionKey = (): Buffer => {
+  const secret = process.env.ENCRYPTION_SECRET;
+  if (!secret) {
+    throw new Error(ERROR_MESSAGES.ENCRYPTION_SECRET_NOT_SET);
   }
+  return crypto.createHash('sha256').update(secret).digest();
+};
 
-  static decrypt(encryptedText: string): string {
-    const secret = process.env.ENCRYPTION_SECRET;
-    if (!secret) {
-      throw new Error(ERROR_MESSAGES.ENCRYPTION_SECRET_NOT_SET);
-    }
+const encode = (iv: Buffer, cipher: Buffer, authTag: Buffer): string =>
+  [iv, cipher, authTag].map((segment) => segment.toString('base64')).join(':');
 
-    try {
-      // For decryption, we need to store the original text
-      // Since bcrypt is one-way, we'll use a different approach
-      // In a real implementation, you'd use AES encryption for this
-      // For now, we'll return the encrypted text as-is and handle decryption differently
-      console.warn(
-        '[encryption] bcrypt is one-way, cannot decrypt. Use AES for two-way encryption.'
-      );
-      return encryptedText;
-    } catch (error) {
-      console.error('[encryption] Failed to decrypt text:', error);
-      throw new Error('Decryption failed');
-    }
+const decode = (payload: string): [Buffer, Buffer, Buffer] => {
+  const [iv, cipher, authTag] = payload.split(':');
+  if (!iv || !cipher || !authTag) {
+    throw new Error('Encrypted payload is malformed');
   }
+  return [Buffer.from(iv, 'base64'), Buffer.from(cipher, 'base64'), Buffer.from(authTag, 'base64')];
+};
 
-  static verify(text: string, encryptedText: string): boolean {
-    const secret = process.env.ENCRYPTION_SECRET;
-    if (!secret) {
-      throw new Error(ERROR_MESSAGES.ENCRYPTION_SECRET_NOT_SET);
-    }
+export const encryptSecret = (plaintext: string): string => {
+  try {
+    const key = getEncryptionKey();
+    const iv = crypto.randomBytes(IV_LENGTH);
+    const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+    const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+    const authTag = cipher.getAuthTag();
 
-    try {
-      const combined = text + secret;
-      return bcrypt.compareSync(combined, encryptedText);
-    } catch (error) {
-      console.error('[encryption] Failed to verify text:', error);
-      return false;
-    }
+    return encode(iv, encrypted, authTag);
+  } catch (error) {
+    console.error('[encryption] Failed to encrypt text:', error);
+    throw new Error('Encryption failed');
   }
-}
+};
+
+export const decryptSecret = (encryptedText: string): string => {
+  try {
+    const key = getEncryptionKey();
+    const [iv, ciphertext, authTag] = decode(encryptedText);
+    const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
+    decipher.setAuthTag(authTag);
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    return decrypted.toString('utf8');
+  } catch (error) {
+    console.error('[encryption] Failed to decrypt text:', error);
+    throw new Error('Decryption failed');
+  }
+};

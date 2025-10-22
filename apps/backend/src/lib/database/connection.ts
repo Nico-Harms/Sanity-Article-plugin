@@ -1,6 +1,10 @@
 import { MongoClient, Db } from 'mongodb';
 import { ERROR_MESSAGES } from '@sanity-notion-llm/shared';
 
+/*===============================================
+=          MongoDB Connection Singleton       =
+===============================================*/
+
 let client: MongoClient | null = null;
 let db: Db | null = null;
 

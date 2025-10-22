@@ -7,105 +7,108 @@ import {
 import type { PluginConfig } from '@sanity-notion-llm/shared';
 import { ERROR_MESSAGES } from '@sanity-notion-llm/shared';
 
-export class ConfigService {
-  private static async getConfigsCollection() {
-    const db = await connectToDatabase();
-    return getConfigsCollection(db);
-  }
+const toPluginConfig = (record: ConfigRecord | null): PluginConfig | null => {
+  if (!record) return null;
+  const { _id, ...pluginConfig } = record;
+  return pluginConfig;
+};
 
-  static async getByStudioId(studioId: string): Promise<PluginConfig | null> {
-    try {
-      const configs = await this.getConfigsCollection();
-      const config = await configs.findOne({ studioId });
+const getConfigs = async () => {
+  const db = await connectToDatabase();
+  return getConfigsCollection(db);
+};
 
-      if (!config) {
-        return null;
-      }
-
-      // Remove MongoDB-specific fields
-      const { _id, ...pluginConfig } = config;
-      return pluginConfig;
-    } catch (error) {
-      console.error(
-        '[config-service] Failed to get config by studio ID:',
-        error
-      );
-      throw new Error(ERROR_MESSAGES.CONFIG_LOAD_FAILED);
-    }
-  }
-
-  static async createOrUpdate(config: PluginConfig): Promise<PluginConfig> {
-    try {
-      const configs = await this.getConfigsCollection();
-      const now = new Date();
-
-      const configRecord: ConfigRecord = {
-        ...config,
-        updatedAt: now,
-        createdAt: config.createdAt || now,
-      };
-
-      const result = await configs.findOneAndUpdate(
-        { studioId: config.studioId },
-        {
-          $set: configRecord,
-          $setOnInsert: { createdAt: now },
-        },
-        {
-          upsert: true,
-          returnDocument: 'after',
-        }
-      );
-
-      if (!result) {
-        throw new Error('Failed to create or update config');
-      }
-
-      // Remove MongoDB-specific fields
-      const { _id, ...pluginConfig } = result;
-      return pluginConfig;
-    } catch (error) {
-      console.error(
-        '[config-service] Failed to create or update config:',
-        error
-      );
-      throw new Error(ERROR_MESSAGES.CONFIG_SAVE_FAILED);
-    }
-  }
-
-  static async getAllActive(): Promise<PluginConfig[]> {
-    try {
-      const configs = await this.getConfigsCollection();
-      const activeConfigs = await configs.find({ isActive: true }).toArray();
-
-      return activeConfigs.map(({ _id, ...config }) => config);
-    } catch (error) {
-      console.error(
-        '[config-service] Failed to get all active configs:',
-        error
-      );
-      throw new Error(ERROR_MESSAGES.CONFIG_LOAD_FAILED);
-    }
-  }
-
-  static async deleteByStudioId(studioId: string): Promise<boolean> {
-    try {
-      const configs = await this.getConfigsCollection();
-      const result = await configs.deleteOne({ studioId });
-      return result.deletedCount > 0;
-    } catch (error) {
-      console.error('[config-service] Failed to delete config:', error);
-      throw new Error('Failed to delete configuration');
-    }
-  }
-
-  static async initializeDatabase(): Promise<void> {
-    try {
-      const db = await connectToDatabase();
-      await createDatabaseIndexes(db);
-    } catch (error) {
-      console.error('[config-service] Failed to initialize database:', error);
+export const getConfigByStudioId = async (
+  studioId: string
+): Promise<PluginConfig | null> => {
+  try {
+    const configs = await getConfigs();
+    const record = await configs.findOne({ studioId });
+    return toPluginConfig(record);
+  } catch (error) {
+    console.error('[config] Failed to load config:', error);
+    if (error instanceof Error) {
       throw error;
     }
+    throw new Error(ERROR_MESSAGES.CONFIG_LOAD_FAILED);
   }
-}
+};
+
+export const savePluginConfig = async (
+  config: PluginConfig
+): Promise<PluginConfig> => {
+  const now = new Date();
+  const { createdAt, ...rest } = config;
+  const record: Omit<ConfigRecord, 'createdAt'> = {
+    ...rest,
+    updatedAt: now,
+  };
+  const createdAtValue = createdAt ?? now;
+
+  try {
+    const configs = await getConfigs();
+    await configs.findOneAndUpdate(
+      { studioId: config.studioId },
+      {
+        $set: record,
+        $setOnInsert: { createdAt: createdAtValue },
+      },
+      { upsert: true, returnDocument: 'after' }
+    );
+
+    const updatedRecord = await configs.findOne({ studioId: config.studioId });
+    const saved = toPluginConfig(updatedRecord);
+    if (!saved) {
+      throw new Error('Saved config could not be mapped');
+    }
+    return saved;
+  } catch (error) {
+    console.error('[config] Failed to save config:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(ERROR_MESSAGES.CONFIG_SAVE_FAILED);
+  }
+};
+
+export const getActiveConfigs = async (): Promise<PluginConfig[]> => {
+  try {
+    const configs = await getConfigs();
+    const records = await configs.find({ isActive: true }).toArray();
+    return records
+      .map(toPluginConfig)
+      .filter((item): item is PluginConfig => item !== null);
+  } catch (error) {
+    console.error('[config] Failed to load active configs:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(ERROR_MESSAGES.CONFIG_LOAD_FAILED);
+  }
+};
+
+export const deleteConfigByStudioId = async (
+  studioId: string
+): Promise<boolean> => {
+  try {
+    const configs = await getConfigs();
+    const result = await configs.deleteOne({ studioId });
+    return result.deletedCount === 1;
+  } catch (error) {
+    console.error('[config] Failed to delete config:', error);
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error('Failed to delete configuration');
+  }
+};
+
+export const initializeConfigDatabase = async (): Promise<void> => {
+  try {
+    const db = await connectToDatabase();
+    await createDatabaseIndexes(db);
+  } catch (error) {
+    console.error('[config] Failed to initialize database:', error);
+    throw error;
+  }
+};

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Text, Stack, Button, Select, Box, Flex } from '@sanity/ui';
 import { useSchema, useProjectId } from 'sanity';
 import {
@@ -20,21 +20,25 @@ import {
   TabbedInterface,
 } from '../components';
 
-// Debounce utility
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}
+// No debounce utility needed - using useEffectEvent instead
 
 /*===============================================
 |=        This shows the tool tab in the studio        =
 ===============================================*/
+
+const createEmptyConfig = (studioId: string): PluginConfig => ({
+  studioId,
+  selectedSchema: null,
+  fieldMappings: LOGICAL_FIELDS.map((field) => ({
+    logicalField: field.key,
+    schemaField: null,
+    enabled: false,
+  })),
+  notionDatabaseUrl: '',
+  notionClientSecret: '',
+  llmApiKey: '',
+  isActive: true,
+});
 
 export function NotionLLMTool() {
   const schema = useSchema();
@@ -53,6 +57,16 @@ export function NotionLLMTool() {
     loadSchemaTypes();
   }, [projectId]);
 
+  const updateConfig = (
+    updater: (current: PluginConfig) => PluginConfig
+  ): void => {
+    if (!projectId) return;
+    setConfig((current) => {
+      const base = current ?? createEmptyConfig(projectId);
+      return updater(base);
+    });
+  };
+
   const loadConfiguration = async () => {
     if (!projectId) return;
 
@@ -62,20 +76,12 @@ export function NotionLLMTool() {
       if (response.config) {
         setConfig(response.config);
       } else {
-        // Initialize with default config
-        setConfig({
-          studioId: projectId,
-          selectedSchema: null,
-          fieldMappings: [],
-          notionDatabaseUrl: '',
-          notionClientSecret: '',
-          llmApiKey: '',
-          isActive: true,
-        });
+        setConfig(createEmptyConfig(projectId));
       }
     } catch (error) {
       console.error('Failed to load config:', error);
       setErrors(['Failed to load configuration']);
+      setConfig(createEmptyConfig(projectId));
     } finally {
       setLoading(false);
     }
@@ -87,16 +93,17 @@ export function NotionLLMTool() {
   };
 
   const saveConfiguration = async () => {
-    if (!config || !projectId) return;
+    if (!projectId) return;
 
     setSaving(true);
     try {
+      const configToSave = config ?? createEmptyConfig(projectId);
       const response = await ApiClient.saveConfig({
-        ...config,
+        ...configToSave,
         studioId: projectId,
       });
-      if (response.success) {
-        console.log('Configuration saved successfully');
+      if (response.success && response.config) {
+        setConfig(response.config);
       }
     } catch (error) {
       console.error('Failed to save config:', error);
@@ -106,27 +113,17 @@ export function NotionLLMTool() {
     }
   };
 
-  // Debounced auto-save
-  const debouncedSave = useMemo(
-    () => debounce(saveConfiguration, 500),
-    [config, projectId]
-  );
-
-  useEffect(() => {
-    if (config && projectId) {
-      debouncedSave();
-    }
-  }, [config, projectId, debouncedSave]);
+  // No auto-save - only save when user clicks save button
 
   const handleSchemaChange = (schemaName: string) => {
     const schemaType = schemaTypes.find((type) => type.name === schemaName);
-    if (!schemaType || !config) return;
+    if (!schemaType || !projectId) return;
 
     const schemaFields = getSchemaFields(schemaType);
     const autoMappings = autoDetectFieldMappings(schemaFields);
 
-    setConfig((prev) => ({
-      ...prev!,
+    updateConfig((current) => ({
+      ...current,
       selectedSchema: schemaName,
       fieldMappings: autoMappings,
     }));
@@ -135,11 +132,9 @@ export function NotionLLMTool() {
   };
 
   const handleFieldToggle = (logicalFieldKey: string, enabled: boolean) => {
-    if (!config) return;
-
-    setConfig((prev) => ({
-      ...prev!,
-      fieldMappings: prev!.fieldMappings.map((mapping) =>
+    updateConfig((current) => ({
+      ...current,
+      fieldMappings: current.fieldMappings.map((mapping) =>
         mapping.logicalField === logicalFieldKey
           ? { ...mapping, enabled }
           : mapping
@@ -151,11 +146,9 @@ export function NotionLLMTool() {
     logicalFieldKey: string,
     schemaFieldName: string
   ) => {
-    if (!config) return;
-
-    setConfig((prev) => ({
-      ...prev!,
-      fieldMappings: prev!.fieldMappings.map((mapping) =>
+    updateConfig((current) => ({
+      ...current,
+      fieldMappings: current.fieldMappings.map((mapping) =>
         mapping.logicalField === logicalFieldKey
           ? { ...mapping, schemaField: schemaFieldName }
           : mapping
@@ -164,9 +157,12 @@ export function NotionLLMTool() {
   };
 
   const validateConfig = () => {
-    if (!config) return false;
+    if (!config) {
+      setErrors(['Please configure the plugin before continuing.']);
+      return false;
+    }
 
-    const validation = validateFieldMappings(config.fieldMappings);
+    const validation = validateFieldMappings(config.fieldMappings || []);
     setErrors(validation.errors);
     return validation.valid;
   };
@@ -179,14 +175,14 @@ export function NotionLLMTool() {
       // Test connection by trying to load Notion data
       const response = await ApiClient.getNotionData(config.studioId);
 
-      setConfig((prev) => ({
-        ...prev!,
+      updateConfig((current) => ({
+        ...current,
         isActive: !response.error,
         errorMessage: response.error || undefined,
       }));
     } catch (error) {
-      setConfig((prev) => ({
-        ...prev!,
+      updateConfig((current) => ({
+        ...current,
         isActive: false,
         errorMessage: 'Connection test failed. Please check your credentials.',
       }));
@@ -218,7 +214,6 @@ export function NotionLLMTool() {
     setLoading(true);
     try {
       // TODO: Implement content generation
-      console.log('Generating content with config:', config);
     } catch (error) {
       setErrors(['Failed to generate content']);
     } finally {
@@ -243,7 +238,7 @@ export function NotionLLMTool() {
   }
 
   const selectedSchemaType = schemaTypes.find(
-    (type) => type.name === config.selectedSchema
+    (type) => type.name === config?.selectedSchema
   );
   const schemaFields = selectedSchemaType
     ? getSchemaFields(selectedSchemaType)
@@ -263,7 +258,7 @@ export function NotionLLMTool() {
         </Text>
         <Select
           style={{ marginTop: 6 }}
-          value={config.selectedSchema || ''}
+          value={config?.selectedSchema || ''}
           onChange={(event) => handleSchemaChange(event.currentTarget.value)}
         >
           <option value="">Choose a schema...</option>
@@ -276,14 +271,14 @@ export function NotionLLMTool() {
       </Box>
 
       {/* Field Mapping */}
-      {config.selectedSchema && (
+      {config?.selectedSchema && (
         <Box>
           <Text size={2} weight="medium">
             Field Mapping
           </Text>
           <Stack space={3}>
             {LOGICAL_FIELDS.map((logicalField) => {
-              const mapping = config.fieldMappings.find(
+              const mapping = config?.fieldMappings?.find(
                 (m) => m.logicalField === logicalField.key
               );
               const isEnabled = mapping?.enabled || false;
@@ -332,27 +327,38 @@ export function NotionLLMTool() {
 
       {/* API Configuration */}
       <ApiConfigSection
-        notionDatabaseUrl={config.notionDatabaseUrl}
-        notionClientSecret={config.notionClientSecret}
-        llmApiKey={config.llmApiKey}
+        notionDatabaseUrl={config?.notionDatabaseUrl || ''}
+        notionClientSecret={config?.notionClientSecret || ''}
+        llmApiKey={config?.llmApiKey || ''}
         onNotionDatabaseUrlChange={(value) =>
-          setConfig((prev) => ({ ...prev!, notionDatabaseUrl: value }))
+          updateConfig((current) => ({
+            ...current,
+            notionDatabaseUrl: value,
+          }))
         }
         onNotionClientSecretChange={(value) =>
-          setConfig((prev) => ({ ...prev!, notionClientSecret: value }))
+          updateConfig((current) => ({
+            ...current,
+            notionClientSecret: value,
+          }))
         }
         onLlmApiKeyChange={(value) =>
-          setConfig((prev) => ({ ...prev!, llmApiKey: value }))
+          updateConfig((current) => ({
+            ...current,
+            llmApiKey: value,
+          }))
         }
+        onSaveConfiguration={saveConfiguration}
         onTestConnection={handleTestConnection}
+        isSaving={saving}
         isTesting={loading}
       />
 
       {/* Connection Status */}
       <ConnectionStatus
-        isConnected={config.isActive}
+        isConnected={config?.isActive || false}
         lastTested={new Date()}
-        errorMessage={config.errorMessage}
+        errorMessage={config?.errorMessage}
       />
 
       {/* Save Status */}
@@ -383,7 +389,7 @@ export function NotionLLMTool() {
           mode="ghost"
           onClick={handleLoadNotionData}
           loading={loading}
-          disabled={!config.notionDatabaseUrl || !config.notionClientSecret}
+          disabled={!config?.notionDatabaseUrl || !config?.notionClientSecret}
         />
       </Box>
 
@@ -413,7 +419,7 @@ export function NotionLLMTool() {
         <Button
           text="Generate Content from Notion"
           tone="primary"
-          disabled={!config.selectedSchema || loading}
+          disabled={!config?.selectedSchema || loading}
           loading={loading}
           onClick={handleGenerateContent}
         />

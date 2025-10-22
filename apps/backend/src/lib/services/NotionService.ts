@@ -6,44 +6,76 @@ import type {
 import type { NotionPage, NotionDatabase } from '@sanity-notion-llm/shared';
 import { NOTION_DEFAULTS, ERROR_MESSAGES } from '@sanity-notion-llm/shared';
 
-export class NotionService {
-  private client: Client;
+const isFullPageResponse = (
+  response: GetPageResponse
+): response is PageObjectResponse => 'properties' in response;
 
-  private isFullPageResponse(
-    response: GetPageResponse
-  ): response is PageObjectResponse {
-    return 'properties' in response;
+const extractPropertyValue = (property: any): any => {
+  if (!property || !property.type) return null;
+
+  switch (property.type) {
+    case 'title':
+      return property.title?.map((t: any) => t.plain_text).join('') || '';
+    case 'rich_text':
+      return property.rich_text?.map((t: any) => t.plain_text).join('') || '';
+    case 'select':
+      return property.select?.name || null;
+    case 'multi_select':
+      return property.multi_select?.map((item: any) => item.name) || [];
+    case 'date':
+      return property.date?.start || null;
+    case 'number':
+      return property.number;
+    case 'checkbox':
+      return property.checkbox;
+    case 'status':
+      return property.status?.name || null;
+    default:
+      return property[property.type] || null;
   }
+};
 
-  constructor(apiKey: string) {
-    this.client = new Client({
-      auth: apiKey,
-    });
-  }
+const formatDatabaseId = (databaseId: string): string => {
+  if (databaseId.includes('-')) return databaseId;
+  if (databaseId.length !== 32) return databaseId;
 
-  /**
-   * Test connection to Notion API
-   */
-  async testConnection(): Promise<{ success: boolean; message: string }> {
+  return [
+    databaseId.substring(0, 8),
+    databaseId.substring(8, 12),
+    databaseId.substring(12, 16),
+    databaseId.substring(16, 20),
+    databaseId.substring(20, 32),
+  ].join('-');
+};
+
+export const createNotionClient = (apiKey: string) => {
+  const client = new Client({ auth: apiKey });
+
+  const testConnection = async (): Promise<{
+    success: boolean;
+    message: string;
+  }> => {
     try {
-      await this.client.users.me({});
+      await client.users.me({});
       return { success: true, message: 'Successfully connected to Notion API' };
     } catch (error) {
-      console.error('[notion-service] Connection test failed:', error);
+      console.error('[notion] Connection test failed:', error);
       return {
         success: false,
-        message: `Failed to connect: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: `Failed to connect: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
       };
     }
-  }
+  };
 
-  /**
-   * Get database information
-   */
-  async getDatabase(databaseId: string): Promise<NotionDatabase | null> {
+  const getDatabase = async (
+    databaseId: string
+  ): Promise<NotionDatabase | null> => {
     try {
-      const response = await this.client.databases.retrieve({
-        database_id: databaseId,
+      const formattedId = formatDatabaseId(databaseId);
+      const response = await client.databases.retrieve({
+        database_id: formattedId,
       });
 
       return {
@@ -52,21 +84,19 @@ export class NotionService {
         properties: Object.keys((response as any).properties || {}),
       };
     } catch (error) {
-      console.error('[notion-service] Failed to get database:', error);
+      console.error('[notion] Failed to get database:', error);
       return null;
     }
-  }
+  };
 
-  /**
-   * Query database pages
-   */
-  async queryDatabase(
+  const queryDatabase = async (
     databaseId: string,
     pageSize = 100
-  ): Promise<NotionPage[]> {
+  ): Promise<NotionPage[]> => {
     try {
-      const response = await this.client.databases.query({
-        database_id: databaseId,
+      const formattedId = formatDatabaseId(databaseId);
+      const response = await client.databases.query({
+        database_id: formattedId,
         page_size: pageSize,
       });
 
@@ -74,37 +104,32 @@ export class NotionService {
         id: page.id,
         url: page.url,
         title:
-          this.extractPropertyValue(
+          extractPropertyValue(
             page.properties?.Name || page.properties?.Title
           ) || NOTION_DEFAULTS.UNTITLED_PAGE,
         properties: Object.keys(page.properties).reduce(
-          (acc: any, key: string) => {
-            acc[key] = this.extractPropertyValue(page.properties[key]);
+          (acc: Record<string, unknown>, key: string) => {
+            acc[key] = extractPropertyValue(page.properties[key]);
             return acc;
           },
           {}
         ),
       }));
     } catch (error) {
-      console.error('[notion-service] Failed to query database:', error);
+      console.error('[notion] Failed to query database:', error);
       return [];
     }
-  }
+  };
 
-  /**
-   * Update the status property of a Notion page
-   */
-  async updatePageStatus(
+  const updatePageStatus = async (
     pageId: string,
     status: string,
     propertyName: string = NOTION_DEFAULTS.STATUS_PROPERTY
-  ): Promise<NotionPage | null> {
+  ): Promise<NotionPage | null> => {
     try {
-      const page = await this.client.pages.retrieve({
-        page_id: pageId,
-      });
+      const page = await client.pages.retrieve({ page_id: pageId });
 
-      if (!this.isFullPageResponse(page)) {
+      if (!isFullPageResponse(page)) {
         throw new Error(ERROR_MESSAGES.NOTION_PAGE_UNEXPECTED_SHAPE);
       }
 
@@ -118,31 +143,23 @@ export class NotionService {
       let propertyUpdate: Record<string, unknown> | null = null;
 
       if (property.type === 'status') {
-        propertyUpdate = {
-          status: { name: status },
-        };
+        propertyUpdate = { status: { name: status } };
       } else if (property.type === 'select') {
-        propertyUpdate = {
-          select: { name: status },
-        };
+        propertyUpdate = { select: { name: status } };
       }
 
       if (!propertyUpdate) {
         throw new Error(ERROR_MESSAGES.NOTION_STATUS_PROPERTY_UNSUPPORTED);
       }
 
-      await this.client.pages.update({
+      await client.pages.update({
         page_id: pageId,
-        properties: {
-          [propertyName]: propertyUpdate,
-        } as Record<string, any>,
+        properties: { [propertyName]: propertyUpdate } as Record<string, any>,
       });
 
-      const updatedPage = await this.client.pages.retrieve({
-        page_id: pageId,
-      });
+      const updatedPage = await client.pages.retrieve({ page_id: pageId });
 
-      if (!this.isFullPageResponse(updatedPage)) {
+      if (!isFullPageResponse(updatedPage)) {
         return null;
       }
 
@@ -152,47 +169,26 @@ export class NotionService {
         id: updatedPage.id,
         url: updatedPage.url,
         title:
-          this.extractPropertyValue(
+          extractPropertyValue(
             updatedProperties?.Name || updatedProperties?.Title
           ) || NOTION_DEFAULTS.UNTITLED_PAGE,
         properties: Object.keys(updatedProperties).reduce<
           Record<string, unknown>
         >((acc, key) => {
-          acc[key] = this.extractPropertyValue(updatedProperties[key]);
+          acc[key] = extractPropertyValue(updatedProperties[key]);
           return acc;
         }, {}),
       };
     } catch (error) {
-      console.error('[notion-service] Failed to update status:', error);
+      console.error('[notion] Failed to update status:', error);
       throw error;
     }
-  }
+  };
 
-  /**
-   * Extract value from Notion property
-   */
-  extractPropertyValue(property: any): any {
-    if (!property || !property.type) return null;
-
-    switch (property.type) {
-      case 'title':
-        return property.title?.map((t: any) => t.plain_text).join('') || '';
-      case 'rich_text':
-        return property.rich_text?.map((t: any) => t.plain_text).join('') || '';
-      case 'select':
-        return property.select?.name || null;
-      case 'multi_select':
-        return property.multi_select?.map((item: any) => item.name) || [];
-      case 'date':
-        return property.date?.start || null;
-      case 'number':
-        return property.number;
-      case 'checkbox':
-        return property.checkbox;
-      case 'status':
-        return property.status?.name || null;
-      default:
-        return property[property.type] || null;
-    }
-  }
-}
+  return {
+    testConnection,
+    getDatabase,
+    queryDatabase,
+    updatePageStatus,
+  };
+};
