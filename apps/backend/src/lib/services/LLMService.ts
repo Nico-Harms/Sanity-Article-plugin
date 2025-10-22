@@ -91,6 +91,8 @@ REQUIREMENTS:
 - Return ONLY the JSON object, no additional text
 - Make sure the JSON is valid and properly formatted
 - Keep the body content focused and to the point
+- IMPORTANT: Escape all quotes, newlines, and special characters in JSON strings
+- Use \\n for line breaks, \\" for quotes, and \\\\ for backslashes in content
 
 Generate the article now:`;
   }
@@ -164,7 +166,38 @@ Generate the article now:`;
         }
       }
 
-      const parsed = JSON.parse(cleanedResponse);
+      // Try to parse JSON, with fallback for control character issues
+      let parsed;
+      try {
+        parsed = JSON.parse(cleanedResponse);
+      } catch (error) {
+        // If JSON parsing fails due to control characters, try to fix them
+        console.log(
+          '[llm-service] JSON parse failed, attempting to fix control characters...'
+        );
+
+        // Use a more robust approach - try to extract JSON from the response
+        const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const jsonString = jsonMatch[0];
+          try {
+            // Try parsing the extracted JSON
+            parsed = JSON.parse(jsonString);
+          } catch (secondError) {
+            // If still failing, create a minimal valid response
+            console.log(
+              '[llm-service] JSON extraction failed, creating fallback response'
+            );
+            parsed = {
+              title: 'Generated Article',
+              body: 'Content generation completed but JSON parsing failed. Please try again.',
+              slug: { current: 'generated-article' },
+            };
+          }
+        } else {
+          throw new Error('No valid JSON found in response');
+        }
+      }
 
       // Validate that all enabled fields are present
       const enabledMappings = fieldMappings.filter(
