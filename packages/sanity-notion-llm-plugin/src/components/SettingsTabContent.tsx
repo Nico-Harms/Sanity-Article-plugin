@@ -11,6 +11,9 @@ interface SettingsTabContentProps {
   onNotionClientSecretChange: (value: string) => void;
   onLlmApiKeyChange: (value: string) => void;
   onLlmModelChange: (value: string) => void;
+  onSanityProjectIdChange: (value: string) => void;
+  onSanityTokenChange: (value: string) => void;
+  onSanityDatasetChange: (value: string) => void;
   onSaveConfiguration: () => void;
   onTestConnection: () => void;
 }
@@ -23,6 +26,9 @@ export function SettingsTabContent({
   onNotionClientSecretChange,
   onLlmApiKeyChange,
   onLlmModelChange,
+  onSanityProjectIdChange,
+  onSanityTokenChange,
+  onSanityDatasetChange,
   onSaveConfiguration,
   onTestConnection,
 }: SettingsTabContentProps) {
@@ -37,11 +43,17 @@ export function SettingsTabContent({
         notionDatabaseUrl={config?.notionDatabaseUrl || ''}
         notionClientSecret={config?.notionClientSecret || ''}
         llmApiKey={config?.llmApiKey || ''}
-        llmModel={config?.llmModel || 'mistral-large-latest'}
+        llmModel={config?.llmModel || 'open-mistral-7b'}
+        sanityProjectId={config?.sanityProjectId || ''}
+        sanityToken={config?.sanityToken || ''}
+        sanityDataset={config?.sanityDataset || 'production'}
         onNotionDatabaseUrlChange={onNotionDatabaseUrlChange}
         onNotionClientSecretChange={onNotionClientSecretChange}
         onLlmApiKeyChange={onLlmApiKeyChange}
         onLlmModelChange={onLlmModelChange}
+        onSanityProjectIdChange={onSanityProjectIdChange}
+        onSanityTokenChange={onSanityTokenChange}
+        onSanityDatasetChange={onSanityDatasetChange}
         onSaveConfiguration={onSaveConfiguration}
         onTestConnection={onTestConnection}
         isSaving={saving}

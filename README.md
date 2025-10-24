@@ -19,14 +19,16 @@ A production-ready, multi-tenant Sanity plugin that connects Notion tables with 
 
 ## Current Status
 
-✅ **Backend**: Clean service layer with LLM integration and Sanity document creation  
-✅ **Studio**: Draft review workflow with approval UI and auto-save field mappings  
+✅ **Backend**: Clean service layer with comprehensive documentation and error handling  
+✅ **Studio**: Dynamic schema detection with LLM-aware field mapping  
 ✅ **Frontend**: Blog displaying Sanity content  
 ✅ **Plugin**: Multi-tenant configuration with modular component architecture  
 ✅ **Database**: MongoDB Atlas with encrypted API keys (Notion, LLM, Sanity)  
-✅ **LLM Integration**: Mistral API integration with content generation  
-✅ **Code Quality**: 24% code reduction through component extraction and cleanup  
-🔄 **Next**: Sanity document creation and automated publishing workflow
+✅ **LLM Integration**: Generates drafts from Notion content with field-aware prompts  
+✅ **Approval Workflow**: Editors review drafts before scheduled publish  
+✅ **Schema Detection**: Automatically detects Sanity schema fields and types  
+✅ **Code Quality**: Comprehensive cleanup with detailed documentation  
+✅ **Complete**: Full content automation pipeline from Notion → LLM → Sanity
 
 ## Architecture Overview
 
@@ -38,16 +40,25 @@ A production-ready, multi-tenant Sanity plugin that connects Notion tables with 
 - **API Client**: Plugin communicates with backend via REST API
 - **Scheduler**: Vercel Cron Jobs for automated content generation
 
+### Content Flow
+
+1. **Week Before**: Cron generates drafts for pages scheduled 7 days ahead
+2. **Review Period**: Editors review drafts in Studio, approve or reject
+3. **Publish Date**: Cron publishes approved drafts when date matches
+4. **Notion Sync**: Status updated to "Published" after successful publish
+
 ### Key Features
 
 - 🔐 **Secure**: API keys encrypted in MongoDB, decrypted server-side
 - 🏢 **Multi-Tenant**: Each Studio can have separate Notion/LLM/Sanity configurations
-- 🔄 **Automated**: Scheduled content generation based on Notion dates
-- 🎯 **Dynamic**: Auto-detects Sanity schemas and suggests field mappings
+- 🔄 **Automated**: Two-phase scheduling (generate week ahead, publish on date)
+- 🎯 **Dynamic**: Auto-detects Sanity schemas and field types with LLM-aware mapping
 - 📊 **Persistent**: Configuration saved to MongoDB, not localStorage
-- 🤖 **LLM Integration**: Mistral API for intelligent content generation
+- 🤖 **LLM Integration**: Mistral API for intelligent content generation with field purposes
 - ✨ **Auto-Save**: Field mappings automatically save on changes
-- 🧩 **Modular**: Clean component architecture with separated concerns
+- 🧩 **Modular**: Clean component architecture with comprehensive documentation
+- 📝 **Approval Workflow**: Draft review system with approve/reject actions
+- 📚 **Well-Documented**: Comprehensive documentation for all services and components
 
 ## Quick Start
 
@@ -126,11 +137,17 @@ npm run dev
 
 ### LLM Content Generation
 
-- `POST /api/generate` - Generate article drafts from Notion content
+- `POST /api/generate` - Generate article drafts from Notion content and create Sanity documents
+
+### Draft Management
+
+- `GET /api/drafts?studioId={id}` - Fetch draft documents for review
+- `POST /api/drafts/approve` - Approve a draft for publishing
+- `POST /api/drafts/reject` - Reject a draft
 
 ### Scheduled Content Generation
 
-- `GET /api/cron/generate-content` - Vercel Cron endpoint (placeholder)
+- `GET /api/cron/generate-content` - Two-phase cron: generate drafts (week ahead) and publish approved (today)
 
 ## Plugin Usage
 
@@ -141,19 +158,17 @@ npm run dev
 3. Go to "Settings" tab
 4. Enter your Notion Database ID and Client Secret
 5. Enter your LLM API Key (Mistral) and select model
-6. Click "Save Configuration" then "Test Connection"
+6. Enter your Sanity Project ID, API Token, and Dataset
+7. Click "Save Configuration" then "Test Connection"
 
-### 2. Map Fields
+### 2. Configure Field Mapping
 
 1. Go to "Fields" tab
 2. Select your content schema (e.g., "article", "blogPost")
-3. Map logical fields to schema fields:
-   - **Title** → `title` field
-   - **Body Content** → `body` field
-   - **Slug** → `slug` field
-   - **Main Image** → `mainImage` field
-   - etc.
-4. Field mappings auto-save when you make changes
+3. The plugin automatically detects all fields in your schema
+4. Toggle fields on/off for content generation
+5. Add purpose descriptions for each field (e.g., "Main article introduction", "Expert quote")
+6. Field configurations auto-save when you make changes
 
 ### 3. Generate Content
 
@@ -161,6 +176,15 @@ npm run dev
 2. Select a Notion page from the dropdown
 3. Click "Generate Draft" to create content using LLM
 4. Review the generated content in the preview
+5. Draft is automatically created in Sanity CMS
+
+### 4. Review and Approve Drafts
+
+1. Go to "Draft Review" tab
+2. View all generated drafts with their scheduled dates
+3. Click "Approve" to mark for publishing on scheduled date
+4. Click "Reject" to remove from publishing queue
+5. Click "Edit in Sanity" to open draft in Sanity Studio
 
 ## Database Schema
 
@@ -200,9 +224,11 @@ npm run dev
 
 ### Backend Services (`apps/backend/src/lib/services/`)
 
-- **`ConfigService`**: Configuration CRUD operations
-- **`NotionService`**: Notion API integration and content extraction
-- **`LLMService`**: Mistral API integration for content generation
+- **`ConfigService`**: Multi-tenant configuration management with encrypted API keys
+- **`NotionService`**: Notion API integration and content extraction utilities
+- **`LLMService`**: Mistral API integration with field-aware prompt engineering
+- **`SanityService`**: Sanity CMS document creation and approval workflow
+- **`SchemaService`**: Dynamic Sanity schema detection and content conversion
 - **`EncryptionService`**: AES-256-GCM API key encryption/decryption
 
 ### Database Layer (`apps/backend/src/lib/database/`)
@@ -218,11 +244,13 @@ npm run dev
 
 ### Plugin Components (`packages/sanity-notion-llm-plugin/src/components/`)
 
-- **`FieldsTabContent`**: Schema selection and field mapping
+- **`FieldsTabContent`**: Dynamic schema selection and field configuration
 - **`SettingsTabContent`**: API configuration and connection testing
 - **`GenerateTabContent`**: Content generation interface
-- **`FieldMappingCard`**: Individual field mapping controls
+- **`DraftReviewSection`**: Draft review and approval workflow
+- **`DetectedFieldCard`**: Individual field toggle and purpose input
 - **`ApiConfigSection`**: API credentials input form
+- **`TabbedInterface`**: Main plugin navigation
 
 ## Security Features
 
@@ -283,6 +311,11 @@ cd packages/shared && npm run dev
 - [ ] Connection test works in plugin
 - [ ] Field mappings auto-save correctly
 - [ ] LLM content generation works (with valid API key)
+- [ ] Sanity document creation works after LLM generation
+- [ ] Draft review tab shows generated drafts
+- [ ] Approve/reject actions work correctly
+- [ ] Cron job generates drafts for future dates
+- [ ] Cron job publishes approved drafts on scheduled date
 - [ ] Notion page selection shows content preview
 - [ ] Multiple Studio instances can have separate configs
 - [ ] Component architecture is clean and modular
@@ -301,30 +334,45 @@ curl -X POST "http://localhost:3001/api/generate" \
      -H "Content-Type: application/json" \
      -d '{"studioId":"test-studio","notionPageId":"page-id"}'
 
+# Test draft management
+curl "http://localhost:3001/api/drafts?studioId=test-studio"
+curl -X POST "http://localhost:3001/api/drafts/approve" \
+     -H "Content-Type: application/json" \
+     -d '{"studioId":"test-studio","documentId":"draft-id"}'
+
 # Test cron endpoint
 curl -H "Authorization: Bearer your-cron-secret" \
      "http://localhost:3001/api/cron/generate-content"
 ```
 
+## Recent Updates
+
+### Code Cleanup & Documentation (Latest)
+
+- ✅ **Removed unused imports** and dead code throughout the codebase
+- ✅ **Cleaned up debug logs** while keeping essential error logging
+- ✅ **Added comprehensive documentation** to all service files
+- ✅ **Updated component documentation** with detailed usage information
+- ✅ **Improved README** with current architecture and features
+- ✅ **Enhanced code quality** with better comments and structure
+
+### LLM-Aware Dynamic Field Mapping
+
+- ✅ **Dynamic Schema Detection**: Automatically detects Sanity schema fields
+- ✅ **Field-Aware Generation**: LLM uses field purposes for better content
+- ✅ **Simplified Configuration**: No more manual field mapping required
+- ✅ **Auto-save**: Field configurations save automatically
+
 ## What's Next
 
-### Phase 2: Sanity Document Creation & Approval Workflow
-
-- [ ] SanityService for document management
-- [ ] Per-studio encrypted Sanity credentials
-- [ ] Draft creation after LLM generation
-- [ ] Draft review UI in Studio plugin
-- [ ] Approval workflow with approve/reject actions
-- [ ] Two-phase cron: generate drafts → publish approved
-
-### Phase 3: Advanced Features
+### Phase 2: Advanced Features
 
 - [ ] Content scheduling based on Notion dates
 - [ ] Batch processing
 - [ ] Content templates
 - [ ] Analytics and monitoring
 
-### Phase 4: Production Features
+### Phase 3: Production Features
 
 - [ ] Rate limiting
 - [ ] Caching

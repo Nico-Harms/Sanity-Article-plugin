@@ -15,6 +15,10 @@ export interface ApiResponse<T = any> {
   pages?: any[];
   page?: any;
   draft?: any;
+  drafts?: any[];
+  sanityDocId?: string;
+  schemas?: any[];
+  fields?: any[];
 }
 
 export class ApiClient {
@@ -94,7 +98,36 @@ export class ApiClient {
     return {
       success: response.success || false,
       draft: response.draft,
+      sanityDocId: response.sanityDocId,
       error: response.error,
     };
+  }
+
+  static async getDrafts(studioId: string) {
+    return this.makeRequest(`/api/drafts?studioId=${studioId}`);
+  }
+
+  static async approveDraft(studioId: string, documentId: string) {
+    return this.makeRequest('/api/drafts/approve', {
+      method: 'POST',
+      body: JSON.stringify({ studioId, documentId }),
+    });
+  }
+
+  static async rejectDraft(studioId: string, documentId: string) {
+    return this.makeRequest('/api/drafts/reject', {
+      method: 'POST',
+      body: JSON.stringify({ studioId, documentId }),
+    });
+  }
+
+  static async getSchemaTypes(studioId: string) {
+    return this.makeRequest(`/api/schema?studioId=${studioId}`);
+  }
+
+  static async getSchemaFields(studioId: string, typeName: string) {
+    return this.makeRequest(
+      `/api/schema?studioId=${studioId}&typeName=${typeName}`
+    );
   }
 }

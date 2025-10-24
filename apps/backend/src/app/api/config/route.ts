@@ -6,10 +6,7 @@ import {
   decryptSecret,
 } from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
-import {
-  normalizeFieldMappings,
-  normalizeOptionalString,
-} from '@sanity-notion-llm/shared';
+// Removed old utility imports - no longer needed with DetectedField approach
 
 const safeDecrypt = (value?: string | null): string => {
   if (!value || !value.trim()) return '';
@@ -30,8 +27,10 @@ const formatConfigForClient = (config: any) => ({
   ...config,
   notionClientSecret: safeDecrypt(config?.notionClientSecret),
   llmApiKey: safeDecrypt(config?.llmApiKey),
-  selectedSchema: normalizeOptionalString(config?.selectedSchema),
-  fieldMappings: normalizeFieldMappings(config?.fieldMappings),
+  sanityProjectId: safeDecrypt(config?.sanityProjectId),
+  sanityToken: safeDecrypt(config?.sanityToken),
+  selectedSchema: config?.selectedSchema || null,
+  detectedFields: config?.detectedFields || [],
 });
 
 export async function GET(request: NextRequest) {
@@ -69,12 +68,18 @@ export async function POST(request: NextRequest) {
       ...body,
       notionClientSecret: encryptIfPresent(body.notionClientSecret),
       llmApiKey: encryptIfPresent(body.llmApiKey),
-      fieldMappings: normalizeFieldMappings(body.fieldMappings),
-      selectedSchema: normalizeOptionalString(body.selectedSchema),
+      sanityProjectId: encryptIfPresent(body.sanityProjectId),
+      sanityToken: encryptIfPresent(body.sanityToken),
+      detectedFields: body.detectedFields || [],
+      selectedSchema: body.selectedSchema || null,
       notionDatabaseUrl:
         typeof body.notionDatabaseUrl === 'string'
           ? body.notionDatabaseUrl.trim()
           : '',
+      sanityDataset:
+        typeof body.sanityDataset === 'string'
+          ? body.sanityDataset.trim()
+          : 'production',
     };
 
     const config = await savePluginConfig(encryptedConfig);

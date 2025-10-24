@@ -2,17 +2,40 @@ import { Mistral } from '@mistralai/mistralai';
 import type {
   NotionPageData,
   SanityDraftData,
-  FieldMapping,
+  DetectedField,
 } from '@sanity-notion-llm/shared';
 
+/*===============================================
+|=                 LLMService                   =
+===============================================*/
+
 /**
- * LLM Service for generating Sanity article drafts from Notion content
+ * LLM SERVICE
  *
- * This service handles:
- * - Building structured prompts from Notion page data
- * - Calling LLM APIs (Mistral, OpenAI, etc.)
- * - Parsing and validating JSON responses
- * - Mapping responses to Sanity schema fields
+ * Generates Sanity article drafts from Notion content using Large Language Models.
+ * Handles prompt engineering, API calls, and response parsing for content generation.
+ *
+ * Key Features:
+ * - Dynamic Prompt Building: Creates structured prompts based on detected schema fields
+ * - Multi-Model Support: Currently supports Mistral AI (extensible to other LLMs)
+ * - Field-Aware Generation: Uses field purposes to generate contextually appropriate content
+ * - JSON Response Parsing: Validates and parses LLM responses into structured data
+ *
+ * Prompt Engineering:
+ * - Includes Notion content plan (subject + content)
+ * - Lists all enabled fields with their purposes
+ * - Provides clear JSON structure requirements
+ * - Includes content quality guidelines
+ *
+ * Error Handling:
+ * - Validates LLM responses for required fields
+ * - Handles API rate limits and errors
+ * - Provides detailed error messages for debugging
+ *
+ * Security:
+ * - Uses encrypted API keys from configuration
+ * - No content persistence - generates on-demand
+ * - Validates all inputs before processing
  */
 export class LLMService {
   private client: Mistral;
@@ -27,19 +50,19 @@ export class LLMService {
    * Generate article content from Notion page data
    *
    * @param notionPage - The Notion page data containing content and subject
-   * @param fieldMappings - Array of field mappings from logical fields to schema fields
+   * @param detectedFields - Array of detected fields with their purposes
    * @param schemaType - The Sanity schema type name (e.g., "article", "blogPost")
    * @returns Structured data matching Sanity schema fields
    */
   async generateArticle(
     notionPage: NotionPageData,
-    fieldMappings: FieldMapping[],
+    detectedFields: DetectedField[],
     schemaType: string
   ): Promise<SanityDraftData> {
     try {
-      const prompt = this.buildPrompt(notionPage, fieldMappings, schemaType);
+      const prompt = this.buildPrompt(notionPage, detectedFields, schemaType);
       const response = await this.callLLM(prompt);
-      return this.parseResponse(response, fieldMappings);
+      return this.parseResponse(response, detectedFields);
     } catch (error) {
       console.error('[llm-service] Error generating article:', error);
       throw new Error(
@@ -53,48 +76,44 @@ export class LLMService {
    */
   private buildPrompt(
     notionPage: NotionPageData,
-    fieldMappings: FieldMapping[],
+    detectedFields: DetectedField[],
     schemaType: string
   ): string {
-    const enabledMappings = fieldMappings.filter((mapping) => mapping.enabled);
+    const enabledFields = detectedFields.filter((field) => field.enabled);
 
-    const fieldInstructions = enabledMappings
-      .map((mapping) => {
-        const logicalField = mapping.logicalField;
-        const schemaField = mapping.schemaField;
-
-        return `- ${logicalField}: Map to Sanity field "${schemaField}"`;
+    const fieldInstructions = enabledFields
+      .map((field) => {
+        const purpose = field.purpose || 'Generate appropriate content';
+        return `- ${field.name} (${field.type}): ${purpose}`;
       })
       .join('\n');
 
-    return `You are a content writer creating a ${schemaType} article for a Sanity CMS.
+    return `You are a content writer creating a ${schemaType} document for a Sanity CMS.
 
 CONTENT PLAN:
 Subject: ${notionPage.subject}
 Content: ${notionPage.content}
 
 TASK:
-Generate a complete article based on the content plan above. Return ONLY a valid JSON object with the following structure:
+Generate content for the following fields based on the content plan above. Each field has a specific purpose:
 
-{
-${enabledMappings.map((mapping) => `  "${mapping.schemaField}": "generated_value"`).join(',\n')}
-}
-
-FIELD MAPPINGS:
 ${fieldInstructions}
 
-REQUIREMENTS:
-- Write engaging, well-structured content (keep it concise - aim for 500-800 words total)
-- Use the subject as the main topic
-- Expand on the content plan with relevant details
-- Ensure all required fields are populated
-- Return ONLY the JSON object, no additional text
-- Make sure the JSON is valid and properly formatted
-- Keep the body content focused and to the point
-- IMPORTANT: Escape all quotes, newlines, and special characters in JSON strings
-- Use \\n for line breaks, \\" for quotes, and \\\\ for backslashes in content
+Return ONLY a valid JSON object with the following structure:
+{
+${enabledFields.map((field) => `  "${field.name}": "generated_value"`).join(',\n')}
+}
 
-Generate the article now:`;
+REQUIREMENTS:
+- Generate engaging, well-structured content for each field
+- Respect each field's stated purpose
+- Keep content concise and focused
+- Ensure all enabled fields are populated
+- Return ONLY the JSON object, no additional text
+- Escape all quotes, newlines, and special characters properly
+- Use \\n for line breaks, \\" for quotes
+
+Generate the content now:`;
   }
 
   /**
@@ -144,7 +163,7 @@ Generate the article now:`;
    */
   private parseResponse(
     response: string,
-    fieldMappings: FieldMapping[]
+    detectedFields: DetectedField[]
   ): SanityDraftData {
     // Clean the response - remove markdown code blocks
     const cleanedResponse = response
@@ -162,16 +181,14 @@ Generate the article now:`;
       const parsed = JSON.parse(jsonMatch[0]);
 
       // Validate required fields
-      const enabledMappings = fieldMappings.filter(
-        (mapping) => mapping.enabled
-      );
-      const missingFields = enabledMappings.filter(
-        (mapping) => !parsed.hasOwnProperty(mapping.schemaField!)
+      const enabledFields = detectedFields.filter((field) => field.enabled);
+      const missingFields = enabledFields.filter(
+        (field) => !parsed.hasOwnProperty(field.name)
       );
 
       if (missingFields.length > 0) {
         throw new Error(
-          `Missing required fields: ${missingFields.map((f) => f.schemaField).join(', ')}`
+          `Missing required fields: ${missingFields.map((f) => f.name).join(', ')}`
         );
       }
 

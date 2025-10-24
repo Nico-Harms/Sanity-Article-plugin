@@ -5,10 +5,16 @@ interface ApiConfigSectionProps {
   notionClientSecret: string;
   llmApiKey: string;
   llmModel: string;
+  sanityProjectId: string;
+  sanityToken: string;
+  sanityDataset: string;
   onNotionDatabaseUrlChange: (value: string) => void;
   onNotionClientSecretChange: (value: string) => void;
   onLlmApiKeyChange: (value: string) => void;
   onLlmModelChange: (value: string) => void;
+  onSanityProjectIdChange: (value: string) => void;
+  onSanityTokenChange: (value: string) => void;
+  onSanityDatasetChange: (value: string) => void;
   onSaveConfiguration: () => void;
   onTestConnection: () => void;
   isSaving: boolean;
@@ -24,10 +30,16 @@ export function ApiConfigSection({
   notionClientSecret,
   llmApiKey,
   llmModel,
+  sanityProjectId,
+  sanityToken,
+  sanityDataset,
   onNotionDatabaseUrlChange,
   onNotionClientSecretChange,
   onLlmApiKeyChange,
   onLlmModelChange,
+  onSanityProjectIdChange,
+  onSanityTokenChange,
+  onSanityDatasetChange,
   onSaveConfiguration,
   onTestConnection,
   isSaving,
@@ -105,13 +117,66 @@ export function ApiConfigSection({
             value={llmModel}
             onChange={(event) => onLlmModelChange(event.currentTarget.value)}
           >
-            <option value="mistral-large-latest">Mistral Large</option>
-            <option value="mistral-medium-latest">Mistral Medium</option>
-            <option value="gpt-4">GPT-4</option>
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            <option value="open-mistral-7b">Open Mistral 7B (Free Tier)</option>
+            <option value="open-mixtral-8x7b">
+              Open Mixtral 8x7B (Free Tier)
+            </option>
+            <option value="mistral-large-latest">Mistral Large (Paid)</option>
+            <option value="mistral-medium-latest">Mistral Medium (Paid)</option>
+            <option value="gpt-4">GPT-4 (Paid)</option>
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Paid)</option>
           </Select>
           <Text size={1} muted style={{ marginTop: 4 }}>
-            Choose the LLM model for content generation
+            Free tier models have generous limits (1B tokens/month). Paid models
+            have higher quality but cost per request.
+          </Text>
+        </Box>
+
+        {/* Sanity Configuration */}
+        <Box>
+          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
+            Sanity Project ID
+          </Text>
+          <TextInput
+            value={sanityProjectId}
+            onChange={(e) => onSanityProjectIdChange(e.currentTarget.value)}
+            placeholder="abc123xyz"
+          />
+          <Text size={1} muted style={{ marginTop: 4 }}>
+            Found in Sanity Manage → Project Settings
+          </Text>
+        </Box>
+
+        <Box>
+          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
+            Sanity API Token
+          </Text>
+          <TextInput
+            type="password"
+            value={sanityToken}
+            onChange={(e) => onSanityTokenChange(e.currentTarget.value)}
+            placeholder="sk..."
+          />
+          <Text size={1} muted style={{ marginTop: 4 }}>
+            Create token with Editor permissions in Sanity Manage → API
+          </Text>
+        </Box>
+
+        <Box>
+          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
+            Sanity Dataset
+          </Text>
+          <Select
+            value={sanityDataset}
+            onChange={(e) => onSanityDatasetChange(e.currentTarget.value)}
+          >
+            <option value="production">production</option>
+            <option value="staging">staging</option>
+            <option value="development">development</option>
+          </Select>
+          <Text size={1} muted style={{ marginTop: 4 }}>
+            Choose the dataset where content will be created. Most projects use
+            "production".
           </Text>
         </Box>
 

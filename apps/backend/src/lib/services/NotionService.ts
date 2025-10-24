@@ -7,6 +7,33 @@ import type { NotionPage, NotionDatabase } from '@sanity-notion-llm/shared';
 import { NOTION_DEFAULTS, ERROR_MESSAGES } from '@sanity-notion-llm/shared';
 
 /*===============================================
+|=                NotionService                 =
+===============================================*/
+
+/**
+ * NOTION API SERVICE
+ *
+ * Handles all interactions with the Notion API for content retrieval.
+ * Provides utilities for database queries, page fetching, and content extraction.
+ *
+ * Key Features:
+ * - Database Management: Query Notion databases and retrieve pages
+ * - Content Extraction: Extract structured content from Notion page properties
+ * - Status Updates: Update page status for workflow management
+ * - Error Handling: Comprehensive error handling with typed responses
+ *
+ * Content Extraction:
+ * - Automatically detects content fields (Title, Content, etc.)
+ * - Extracts subject from page title or first property
+ * - Handles various Notion property types (text, rich_text, etc.)
+ *
+ * Security:
+ * - Uses Notion API tokens for authentication
+ * - Validates API responses and handles errors gracefully
+ * - No data persistence - all data fetched on-demand
+ */
+
+/*===============================================
 =          Is full page response           =
 ===============================================*/
 

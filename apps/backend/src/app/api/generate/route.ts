@@ -3,6 +3,8 @@ import { Client } from '@notionhq/client';
 import {
   getConfigByStudioId,
   createLLMService,
+  createSanityService,
+  createSchemaService,
   decryptSecret,
   extractContentFromProperties,
   extractSubjectFromProperties,
@@ -30,8 +32,6 @@ import type {
  */
 export async function POST(request: NextRequest) {
   try {
-    console.log('[generate-api] Starting generation request');
-
     const body: GenerateRequest = await request.json();
     const { studioId, notionPageId } = body;
 
@@ -43,10 +43,6 @@ export async function POST(request: NextRequest) {
     if (!notionPageId) {
       return createCorsResponse({ error: 'notionPageId is required' }, 400);
     }
-
-    console.log(
-      `[generate-api] Generating content for studio: ${studioId}, page: ${notionPageId}`
-    );
 
     // Load configuration from database
     const config = await getConfigByStudioId(studioId);
@@ -72,7 +68,6 @@ export async function POST(request: NextRequest) {
     // Create Notion client and fetch page data
     const notionClient = new Client({ auth: notionClientSecret });
 
-    console.log(`[generate-api] Fetching Notion page: ${notionPageId}`);
     const notionPage = await notionClient.pages.retrieve({
       page_id: notionPageId,
     });
@@ -90,27 +85,65 @@ export async function POST(request: NextRequest) {
       subject: extractSubjectFromProperties(notionPage.properties),
     };
 
-    console.log(
-      `[generate-api] Notion page data extracted, content length: ${notionPageData.content.length}`
-    );
-
     // Create LLM service and generate article
     const llmService = createLLMService(llmApiKey, config.llmModel);
 
-    console.log(
-      `[generate-api] Generating article with model: ${config.llmModel}`
-    );
     const draft = await llmService.generateArticle(
       notionPageData,
-      config.fieldMappings,
+      config.detectedFields,
       config.selectedSchema || 'article'
     );
 
-    console.log(`[generate-api] Article generated successfully`);
+    // Create Sanity draft document
+    let sanityDocId: string | null = null;
+    try {
+      // Decrypt Sanity credentials
+      const sanityProjectId = decryptSecret(config.sanityProjectId);
+      const sanityToken = decryptSecret(config.sanityToken);
+
+      // Create services
+      const sanityService = createSanityService(
+        sanityProjectId,
+        sanityToken,
+        config.sanityDataset
+      );
+      const schemaService = createSchemaService(
+        sanityProjectId,
+        sanityToken,
+        config.sanityDataset
+      );
+
+      // Prepare content for the specific schema
+      const schemaType = config.selectedSchema || 'article';
+      const rawContent = {
+        ...draft,
+        publishDate: notionPageData.properties.Date, // from Notion
+      };
+
+      const preparedContent = await schemaService.prepareContentForSchema(
+        rawContent,
+        schemaType
+      );
+
+      // Create draft document
+      const sanityDoc = await sanityService.createDraft(
+        schemaType,
+        preparedContent
+      );
+
+      sanityDocId = sanityDoc._id;
+    } catch (sanityError) {
+      console.error(
+        '[generate-api] Failed to create Sanity draft:',
+        sanityError
+      );
+      // Continue without failing the entire request
+    }
 
     const response: GenerateResponse = {
       success: true,
       draft,
+      sanityDocId: sanityDocId ?? undefined,
     };
 
     return createCorsResponse(response, 200);

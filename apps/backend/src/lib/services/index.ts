@@ -23,3 +23,5 @@ export {
   extractSubjectFromProperties,
 } from './NotionService';
 export { LLMService, createLLMService } from './LLMService';
+export { SanityService, createSanityService } from './SanityService';
+export { SchemaService, createSchemaService } from './SchemaService';

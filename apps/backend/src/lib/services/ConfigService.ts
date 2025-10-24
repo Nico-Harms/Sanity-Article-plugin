@@ -5,10 +5,34 @@ import {
   type ConfigRecord,
 } from '../database';
 import type { PluginConfig } from '@sanity-notion-llm/shared';
-import {
-  ERROR_MESSAGES,
-  normalizeFieldMappings,
-} from '@sanity-notion-llm/shared';
+import { ERROR_MESSAGES } from '@sanity-notion-llm/shared';
+
+/*===============================================
+|=                ConfigService                 =
+===============================================*/
+
+/**
+ * CONFIGURATION SERVICE
+ *
+ * Manages plugin configuration storage and retrieval in MongoDB.
+ * Handles multi-tenant configuration with encrypted API keys.
+ *
+ * Key Features:
+ * - Multi-tenant: Each Sanity Studio has isolated configuration
+ * - Encrypted Storage: API keys are encrypted before database storage
+ * - Auto-initialization: Creates database indexes on first run
+ * - Error Handling: Comprehensive error handling with typed responses
+ *
+ * Database Schema:
+ * - Collection: 'configs'
+ * - Index: studioId (unique)
+ * - Fields: All PluginConfig fields + MongoDB _id
+ *
+ * Security:
+ * - API keys encrypted with AES-256-GCM
+ * - No plaintext secrets in database
+ * - Decryption only on server-side
+ */
 
 /*===============================================
 =          To plugin config           =
@@ -16,10 +40,10 @@ import {
 
 const toPluginConfig = (record: ConfigRecord | null): PluginConfig | null => {
   if (!record) return null;
-  const { _id, fieldMappings, ...pluginConfig } = record;
+  const { _id, ...pluginConfig } = record;
   return {
     ...pluginConfig,
-    fieldMappings: normalizeFieldMappings(fieldMappings),
+    detectedFields: record.detectedFields || [],
   };
 };
 
@@ -60,11 +84,10 @@ export const savePluginConfig = async (
   config: PluginConfig
 ): Promise<PluginConfig> => {
   const now = new Date();
-  const sanitizedFieldMappings = normalizeFieldMappings(config.fieldMappings);
   const { createdAt, ...rest } = config;
   const record: Omit<ConfigRecord, 'createdAt'> = {
     ...rest,
-    fieldMappings: sanitizedFieldMappings,
+    detectedFields: config.detectedFields || [],
     updatedAt: now,
   };
   const createdAtValue = createdAt ?? now;
@@ -80,8 +103,7 @@ export const savePluginConfig = async (
       { upsert: true, returnDocument: 'after' }
     );
 
-    const updatedRecord =
-      await configs.findOne({ studioId: config.studioId });
+    const updatedRecord = await configs.findOne({ studioId: config.studioId });
     const saved = toPluginConfig(updatedRecord);
     if (!saved) {
       throw new Error('Saved config could not be mapped');

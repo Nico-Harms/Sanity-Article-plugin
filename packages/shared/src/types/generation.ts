@@ -17,5 +17,6 @@ export interface GenerateRequest {
 export interface GenerateResponse {
   success: boolean;
   draft?: SanityDraftData;
+  sanityDocId?: string;
   error?: string;
 }
