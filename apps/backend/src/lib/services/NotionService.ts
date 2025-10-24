@@ -64,23 +64,30 @@ const formatDatabaseId = (databaseId: string): string => {
 =          Map notion page           =
 ===============================================*/
 
-const mapNotionPage = (page: PageObjectResponse): NotionPage => {
-  const title =
-    extractPropertyValue(page.properties?.Name || page.properties?.Title) ||
-    NOTION_DEFAULTS.UNTITLED_PAGE;
+const mapPropertyValues = (
+  properties: Record<string, any> | undefined
+): Record<string, unknown> => {
+  return Object.keys(properties || {}).reduce<Record<string, unknown>>(
+    (acc, key) => {
+      acc[key] = extractPropertyValue(properties?.[key]);
+      return acc;
+    },
+    {}
+  );
+};
 
-  const properties = Object.keys(page.properties || {}).reduce<
-    Record<string, unknown>
-  >((acc, key) => {
-    acc[key] = extractPropertyValue(page.properties[key]);
-    return acc;
-  }, {});
+const mapNotionPage = (page: PageObjectResponse): NotionPage => {
+  const rawProperties = (page.properties || {}) as Record<string, any>;
+  const title =
+    extractPropertyValue(rawProperties?.Name || rawProperties?.Title) ||
+    NOTION_DEFAULTS.UNTITLED_PAGE;
 
   return {
     id: page.id,
     url: page.url,
     title,
-    properties,
+    properties: rawProperties,
+    propertyValues: mapPropertyValues(rawProperties),
   };
 };
 

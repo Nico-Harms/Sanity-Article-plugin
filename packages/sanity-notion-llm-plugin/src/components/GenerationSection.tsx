@@ -84,13 +84,13 @@ export function GenerationSection({
             </option>
             {notionPages.map((page) => (
               <option key={page.id} value={page.id}>
-                {extractPageDisplayText(page.content || {})}
+                {extractPageDisplayText(page.properties || {})}
               </option>
             ))}
           </Select>
           {selectedPage && (
             <Text size={1} muted style={{ marginTop: 4 }}>
-              Selected: {extractPageDisplayText(selectedPage.content || {})}
+              Selected: {extractPageDisplayText(selectedPage.properties || {})}
             </Text>
           )}
         </Box>

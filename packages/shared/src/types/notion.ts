@@ -2,7 +2,18 @@ export interface NotionPage {
   id: string;
   url: string;
   title: string;
-  properties: Record<string, unknown>;
+  /**
+   * Raw Notion property payload as returned by the API.
+   * Consumers that need display text should use helpers that
+   * understand Notion property shapes.
+   */
+  properties: Record<string, any>;
+  /**
+   * Convenience map of simplified property values. These are
+   * derived from the raw properties and are useful when callers
+   * just need primitive data.
+   */
+  propertyValues: Record<string, unknown>;
 }
 
 export interface NotionDatabase {

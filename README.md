@@ -19,13 +19,14 @@ A production-ready, multi-tenant Sanity plugin that connects Notion tables with 
 
 ## Current Status
 
-✅ **Backend**: Clean service layer architecture with MongoDB  
-✅ **Studio**: Sanity Studio with enhanced plugin  
+✅ **Backend**: Clean service layer with LLM integration and Sanity document creation  
+✅ **Studio**: Draft review workflow with approval UI and auto-save field mappings  
 ✅ **Frontend**: Blog displaying Sanity content  
-✅ **Plugin**: Multi-tenant configuration with backend integration  
-✅ **Database**: MongoDB Atlas integration with encrypted API keys  
-✅ **Scheduler**: Vercel Cron preparation (placeholder implementation)  
-🔄 **Next**: LLM integration and content generation logic
+✅ **Plugin**: Multi-tenant configuration with modular component architecture  
+✅ **Database**: MongoDB Atlas with encrypted API keys (Notion, LLM, Sanity)  
+✅ **LLM Integration**: Mistral API integration with content generation  
+✅ **Code Quality**: 24% code reduction through component extraction and cleanup  
+🔄 **Next**: Sanity document creation and automated publishing workflow
 
 ## Architecture Overview
 
@@ -40,10 +41,13 @@ A production-ready, multi-tenant Sanity plugin that connects Notion tables with 
 ### Key Features
 
 - 🔐 **Secure**: API keys encrypted in MongoDB, decrypted server-side
-- 🏢 **Multi-Tenant**: Each Studio can have separate Notion/LLM configurations
+- 🏢 **Multi-Tenant**: Each Studio can have separate Notion/LLM/Sanity configurations
 - 🔄 **Automated**: Scheduled content generation based on Notion dates
 - 🎯 **Dynamic**: Auto-detects Sanity schemas and suggests field mappings
 - 📊 **Persistent**: Configuration saved to MongoDB, not localStorage
+- 🤖 **LLM Integration**: Mistral API for intelligent content generation
+- ✨ **Auto-Save**: Field mappings automatically save on changes
+- 🧩 **Modular**: Clean component architecture with separated concerns
 
 ## Quick Start
 
@@ -120,6 +124,10 @@ npm run dev
 - `GET /api/notion/table?studioId={id}` - Read Notion database content
 - `PATCH /api/notion/status?studioId={id}` - Update Notion page status
 
+### LLM Content Generation
+
+- `POST /api/generate` - Generate article drafts from Notion content
+
 ### Scheduled Content Generation
 
 - `GET /api/cron/generate-content` - Vercel Cron endpoint (placeholder)
@@ -131,9 +139,9 @@ npm run dev
 1. Open Sanity Studio
 2. Navigate to "Notion LLM" tool
 3. Go to "Settings" tab
-4. Enter your Notion Database URL and Client Secret
-5. Enter your LLM API Key
-6. Click "Test Connection"
+4. Enter your Notion Database ID and Client Secret
+5. Enter your LLM API Key (Mistral) and select model
+6. Click "Save Configuration" then "Test Connection"
 
 ### 2. Map Fields
 
@@ -145,23 +153,28 @@ npm run dev
    - **Slug** → `slug` field
    - **Main Image** → `mainImage` field
    - etc.
+4. Field mappings auto-save when you make changes
 
 ### 3. Generate Content
 
 1. Go to "Generate" tab
-2. Click "Load Notion Data" to preview your Notion pages
-3. Click "Generate Content from Notion" to create Sanity drafts
+2. Select a Notion page from the dropdown
+3. Click "Generate Draft" to create content using LLM
+4. Review the generated content in the preview
 
 ## Database Schema
 
 ### Collections
 
 - **`configs`**: Plugin configurations per Studio
-
   - `studioId` (string, unique)
   - `notionDatabaseUrl` (string)
   - `notionClientSecret` (string, encrypted)
   - `llmApiKey` (string, encrypted)
+  - `llmModel` (string)
+  - `sanityProjectId` (string, encrypted)
+  - `sanityToken` (string, encrypted)
+  - `sanityDataset` (string)
   - `selectedSchema` (string)
   - `fieldMappings` (array)
   - `isActive` (boolean)
@@ -179,8 +192,8 @@ npm run dev
 - **Studio**: Sanity v3, React, @sanity/ui
 - **Frontend**: Next.js 15, React, Tailwind CSS v4
 - **Database**: MongoDB Atlas
-- **APIs**: Notion API, Sanity API
-- **Encryption**: bcryptjs for API key security
+- **APIs**: Notion API, Sanity API, Mistral API
+- **Encryption**: AES-256-GCM for API key security
 - **Scheduling**: Vercel Cron Jobs
 
 ## Service Layer Architecture
@@ -188,8 +201,9 @@ npm run dev
 ### Backend Services (`apps/backend/src/lib/services/`)
 
 - **`ConfigService`**: Configuration CRUD operations
-- **`NotionService`**: Notion API integration
-- **`EncryptionService`**: API key encryption/decryption
+- **`NotionService`**: Notion API integration and content extraction
+- **`LLMService`**: Mistral API integration for content generation
+- **`EncryptionService`**: AES-256-GCM API key encryption/decryption
 
 ### Database Layer (`apps/backend/src/lib/database/`)
 
@@ -198,12 +212,21 @@ npm run dev
 
 ### Shared Package (`packages/shared/`)
 
-- **Types**: Common TypeScript interfaces
+- **Types**: Common TypeScript interfaces and generation types
 - **Constants**: Error messages and default values
+- **Utils**: Shared utility functions for content extraction
+
+### Plugin Components (`packages/sanity-notion-llm-plugin/src/components/`)
+
+- **`FieldsTabContent`**: Schema selection and field mapping
+- **`SettingsTabContent`**: API configuration and connection testing
+- **`GenerateTabContent`**: Content generation interface
+- **`FieldMappingCard`**: Individual field mapping controls
+- **`ApiConfigSection`**: API credentials input form
 
 ## Security Features
 
-- 🔐 **Encrypted Storage**: API keys encrypted with bcryptjs
+- 🔐 **Encrypted Storage**: API keys encrypted with AES-256-GCM
 - 🏢 **Multi-Tenant Isolation**: Each Studio has separate configuration
 - 🔒 **Server-Side Decryption**: Keys only decrypted in backend
 - 🛡️ **Input Validation**: All API inputs validated
@@ -258,9 +281,11 @@ cd packages/shared && npm run dev
 - [ ] Plugin can save configuration to backend
 - [ ] API keys are encrypted in database
 - [ ] Connection test works in plugin
-- [ ] Field mappings persist correctly
+- [ ] Field mappings auto-save correctly
+- [ ] LLM content generation works (with valid API key)
+- [ ] Notion page selection shows content preview
 - [ ] Multiple Studio instances can have separate configs
-- [ ] Vercel cron endpoint is accessible (even if placeholder)
+- [ ] Component architecture is clean and modular
 
 ### API Testing
 
@@ -271,6 +296,11 @@ curl "http://localhost:3001/api/config?studioId=test-studio"
 # Test Notion data loading
 curl "http://localhost:3001/api/notion/table?studioId=test-studio"
 
+# Test LLM content generation
+curl -X POST "http://localhost:3001/api/generate" \
+     -H "Content-Type: application/json" \
+     -d '{"studioId":"test-studio","notionPageId":"page-id"}'
+
 # Test cron endpoint
 curl -H "Authorization: Bearer your-cron-secret" \
      "http://localhost:3001/api/cron/generate-content"
@@ -278,12 +308,14 @@ curl -H "Authorization: Bearer your-cron-secret" \
 
 ## What's Next
 
-### Phase 2: LLM Integration
+### Phase 2: Sanity Document Creation & Approval Workflow
 
-- [ ] OpenAI API integration
-- [ ] Content generation from Notion pages
-- [ ] Sanity document creation
-- [ ] Error handling and retry logic
+- [ ] SanityService for document management
+- [ ] Per-studio encrypted Sanity credentials
+- [ ] Draft creation after LLM generation
+- [ ] Draft review UI in Studio plugin
+- [ ] Approval workflow with approve/reject actions
+- [ ] Two-phase cron: generate drafts → publish approved
 
 ### Phase 3: Advanced Features
 

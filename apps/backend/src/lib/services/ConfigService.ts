@@ -5,7 +5,10 @@ import {
   type ConfigRecord,
 } from '../database';
 import type { PluginConfig } from '@sanity-notion-llm/shared';
-import { ERROR_MESSAGES } from '@sanity-notion-llm/shared';
+import {
+  ERROR_MESSAGES,
+  normalizeFieldMappings,
+} from '@sanity-notion-llm/shared';
 
 /*===============================================
 =          To plugin config           =
@@ -13,8 +16,11 @@ import { ERROR_MESSAGES } from '@sanity-notion-llm/shared';
 
 const toPluginConfig = (record: ConfigRecord | null): PluginConfig | null => {
   if (!record) return null;
-  const { _id, ...pluginConfig } = record;
-  return pluginConfig;
+  const { _id, fieldMappings, ...pluginConfig } = record;
+  return {
+    ...pluginConfig,
+    fieldMappings: normalizeFieldMappings(fieldMappings),
+  };
 };
 
 /*===============================================
@@ -54,9 +60,11 @@ export const savePluginConfig = async (
   config: PluginConfig
 ): Promise<PluginConfig> => {
   const now = new Date();
+  const sanitizedFieldMappings = normalizeFieldMappings(config.fieldMappings);
   const { createdAt, ...rest } = config;
   const record: Omit<ConfigRecord, 'createdAt'> = {
     ...rest,
+    fieldMappings: sanitizedFieldMappings,
     updatedAt: now,
   };
   const createdAtValue = createdAt ?? now;
@@ -72,7 +80,8 @@ export const savePluginConfig = async (
       { upsert: true, returnDocument: 'after' }
     );
 
-    const updatedRecord = await configs.findOne({ studioId: config.studioId });
+    const updatedRecord =
+      await configs.findOne({ studioId: config.studioId });
     const saved = toPluginConfig(updatedRecord);
     if (!saved) {
       throw new Error('Saved config could not be mapped');

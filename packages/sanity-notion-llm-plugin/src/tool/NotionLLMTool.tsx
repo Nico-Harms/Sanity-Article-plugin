@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Card, Text, Stack, Button, Select, Box, Flex } from '@sanity/ui';
+import { useState, useEffect, useCallback } from 'react';
+import { Card, Text, Stack } from '@sanity/ui';
 import { useSchema, useProjectId } from 'sanity';
 import {
   getContentSchemaTypes,
@@ -8,17 +8,16 @@ import {
   validateFieldMappings,
 } from '../utils/schemaUtils';
 import {
-  LOGICAL_FIELDS,
+  createDefaultFieldMappings,
   type PluginConfig,
   type SchemaType,
 } from '@sanity-notion-llm/shared';
 import { ApiClient } from '../services/apiClient';
 import {
-  FieldMappingCard,
-  ApiConfigSection,
-  ConnectionStatus,
   TabbedInterface,
-  GenerationSection,
+  FieldsTabContent,
+  SettingsTabContent,
+  GenerateTabContent,
 } from '../components';
 
 // No debounce utility needed - using useEffectEvent instead
@@ -30,11 +29,7 @@ import {
 const createEmptyConfig = (studioId: string): PluginConfig => ({
   studioId,
   selectedSchema: null,
-  fieldMappings: LOGICAL_FIELDS.map((field) => ({
-    logicalField: field.key,
-    schemaField: null,
-    enabled: false,
-  })),
+  fieldMappings: createDefaultFieldMappings(),
   notionDatabaseUrl: '',
   notionClientSecret: '',
   llmApiKey: '',
@@ -101,7 +96,7 @@ export function NotionLLMTool() {
     setSchemaTypes(contentTypes);
   };
 
-  const saveConfiguration = async () => {
+  const saveConfiguration = useCallback(async () => {
     if (!projectId) return;
 
     setSaving(true);
@@ -120,9 +115,36 @@ export function NotionLLMTool() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [config, projectId]);
 
-  // No auto-save - only save when user clicks save button
+  // Auto-save field mapping changes (targeted approach)
+  useEffect(() => {
+    if (!config || !projectId) return;
+
+    // Only auto-save if config has been loaded (not initial empty state)
+    const hasLoadedConfig =
+      config.notionDatabaseUrl || config.notionClientSecret || config.llmApiKey;
+    if (!hasLoadedConfig) return;
+
+    // Only save if we have field mappings or selected schema
+    const hasFieldMappings =
+      config.fieldMappings && config.fieldMappings.length > 0;
+    const hasSelectedSchema = config.selectedSchema;
+
+    if (hasFieldMappings || hasSelectedSchema) {
+      saveConfiguration();
+    }
+  }, [
+    // Only watch specific field mapping properties, not entire config
+    JSON.stringify(
+      config?.fieldMappings?.map((m) => ({
+        logicalField: m.logicalField,
+        schemaField: m.schemaField,
+        enabled: m.enabled,
+      }))
+    ),
+    config?.selectedSchema,
+  ]);
 
   const handleSchemaChange = (schemaName: string) => {
     const schemaType = schemaTypes.find((type) => type.name === schemaName);
@@ -217,19 +239,6 @@ export function NotionLLMTool() {
     }
   };
 
-  const handleGenerateContent = async () => {
-    if (!validateConfig()) return;
-
-    setLoading(true);
-    try {
-      // TODO: Implement content generation
-    } catch (error) {
-      setErrors(['Failed to generate content']);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (loading && !config) {
     return (
       <Card padding={4}>
@@ -246,148 +255,54 @@ export function NotionLLMTool() {
     );
   }
 
-  const selectedSchemaType = schemaTypes.find(
-    (type) => type.name === config?.selectedSchema
-  );
-  const schemaFields = selectedSchemaType
-    ? getSchemaFields(selectedSchemaType)
-    : [];
-
   // Define tab content components
   const fieldsTabContent = (
-    <Stack space={4}>
-      <Text size={2} weight="medium">
-        Field Mapping Configuration
-      </Text>
-
-      {/* Schema Selection */}
-      <Box>
-        <Text size={2} weight="medium">
-          Select Content Schema
-        </Text>
-        <Select
-          style={{ marginTop: 6 }}
-          value={config?.selectedSchema || ''}
-          onChange={(event) => handleSchemaChange(event.currentTarget.value)}
-        >
-          <option value="">Choose a schema...</option>
-          {schemaTypes.map((type) => (
-            <option key={type.name} value={type.name}>
-              {type.title || type.name}
-            </option>
-          ))}
-        </Select>
-      </Box>
-
-      {/* Field Mapping */}
-      {config?.selectedSchema && (
-        <Box>
-          <Text size={2} weight="medium">
-            Field Mapping
-          </Text>
-          <Stack space={3}>
-            {LOGICAL_FIELDS.map((logicalField) => {
-              const mapping = config?.fieldMappings?.find(
-                (m) => m.logicalField === logicalField.key
-              );
-              const isEnabled = mapping?.enabled || false;
-              const selectedField = mapping?.schemaField || '';
-
-              return (
-                <FieldMappingCard
-                  key={logicalField.key}
-                  logicalField={logicalField}
-                  schemaFields={schemaFields}
-                  isEnabled={isEnabled}
-                  selectedField={selectedField}
-                  onToggle={(enabled) =>
-                    handleFieldToggle(logicalField.key, enabled)
-                  }
-                  onFieldSelect={(fieldName) =>
-                    handleFieldMapping(logicalField.key, fieldName)
-                  }
-                />
-              );
-            })}
-          </Stack>
-        </Box>
-      )}
-
-      {/* Error Messages */}
-      {errors.length > 0 && (
-        <Card padding={3} tone="critical" border>
-          <Stack space={2}>
-            {errors.map((error, index) => (
-              <Text key={index} size={1}>
-                {error}
-              </Text>
-            ))}
-          </Stack>
-        </Card>
-      )}
-    </Stack>
+    <FieldsTabContent
+      config={config}
+      schemaTypes={schemaTypes}
+      errors={errors}
+      onSchemaChange={handleSchemaChange}
+      onFieldToggle={handleFieldToggle}
+      onFieldMapping={handleFieldMapping}
+    />
   );
 
   const settingsTabContent = (
-    <Stack space={4}>
-      <Text size={2} weight="medium">
-        API Configuration & Settings
-      </Text>
-
-      {/* API Configuration */}
-      <ApiConfigSection
-        notionDatabaseUrl={config?.notionDatabaseUrl || ''}
-        notionClientSecret={config?.notionClientSecret || ''}
-        llmApiKey={config?.llmApiKey || ''}
-        llmModel={config?.llmModel || 'mistral-large-latest'}
-        onNotionDatabaseUrlChange={(value) =>
-          updateConfig((current) => ({
-            ...current,
-            notionDatabaseUrl: value,
-          }))
-        }
-        onNotionClientSecretChange={(value) =>
-          updateConfig((current) => ({
-            ...current,
-            notionClientSecret: value,
-          }))
-        }
-        onLlmApiKeyChange={(value) =>
-          updateConfig((current) => ({
-            ...current,
-            llmApiKey: value,
-          }))
-        }
-        onLlmModelChange={(value) =>
-          updateConfig((current) => ({
-            ...current,
-            llmModel: value,
-          }))
-        }
-        onSaveConfiguration={saveConfiguration}
-        onTestConnection={handleTestConnection}
-        isSaving={saving}
-        isTesting={loading}
-      />
-
-      {/* Connection Status */}
-      <ConnectionStatus
-        isConnected={config?.isActive || false}
-        lastTested={new Date()}
-        errorMessage={config?.errorMessage}
-      />
-
-      {/* Save Status */}
-      {saving && (
-        <Card padding={3} tone="transparent" border>
-          <Text size={1}>Saving configuration...</Text>
-        </Card>
-      )}
-    </Stack>
+    <SettingsTabContent
+      config={config}
+      saving={saving}
+      loading={loading}
+      onNotionDatabaseUrlChange={(value) =>
+        updateConfig((current) => ({
+          ...current,
+          notionDatabaseUrl: value,
+        }))
+      }
+      onNotionClientSecretChange={(value) =>
+        updateConfig((current) => ({
+          ...current,
+          notionClientSecret: value,
+        }))
+      }
+      onLlmApiKeyChange={(value) =>
+        updateConfig((current) => ({
+          ...current,
+          llmApiKey: value,
+        }))
+      }
+      onLlmModelChange={(value) =>
+        updateConfig((current) => ({
+          ...current,
+          llmModel: value,
+        }))
+      }
+      onSaveConfiguration={saveConfiguration}
+      onTestConnection={handleTestConnection}
+    />
   );
 
   const generateTabContent = (
-    <GenerationSection
+    <GenerateTabContent
       studioId={projectId}
       notionPages={notionData?.pages || []}
       onGenerationComplete={(draft) => {

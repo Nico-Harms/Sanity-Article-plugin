@@ -2,11 +2,7 @@ import { getPostBySlug, getAllPosts } from '@/lib/sanity';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 
-interface PostPageProps {
-  params: {
-    slug: string;
-  };
-}
+type PostPageParams = Promise<{ slug: string }>;
 
 export async function generateStaticParams() {
   const posts = await getAllPosts();
@@ -16,7 +12,11 @@ export async function generateStaticParams() {
   }));
 }
 
-export default async function PostPage({ params }: PostPageProps) {
+export default async function PostPage({
+  params,
+}: {
+  params: PostPageParams;
+}) {
   const { slug } = await params;
   const post = await getPostBySlug(slug);
 

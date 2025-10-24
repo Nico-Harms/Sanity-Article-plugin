@@ -6,7 +6,10 @@ import {
   decryptSecret,
 } from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
-import { LOGICAL_FIELDS, type FieldMapping } from '@sanity-notion-llm/shared';
+import {
+  normalizeFieldMappings,
+  normalizeOptionalString,
+} from '@sanity-notion-llm/shared';
 
 const safeDecrypt = (value?: string | null): string => {
   if (!value || !value.trim()) return '';
@@ -23,12 +26,6 @@ const encryptIfPresent = (value: unknown): string =>
     ? encryptSecret(value)
     : '';
 
-const normalizeOptionalString = (value: unknown): string | null => {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-};
-
 const formatConfigForClient = (config: any) => ({
   ...config,
   notionClientSecret: safeDecrypt(config?.notionClientSecret),
@@ -36,44 +33,6 @@ const formatConfigForClient = (config: any) => ({
   selectedSchema: normalizeOptionalString(config?.selectedSchema),
   fieldMappings: normalizeFieldMappings(config?.fieldMappings),
 });
-
-const normalizeFieldMappings = (value: unknown): FieldMapping[] => {
-  const provided = Array.isArray(value)
-    ? value
-        .map((item) => {
-          const logicalField =
-            typeof item?.logicalField === 'string' ? item.logicalField : '';
-          if (!logicalField) return null;
-
-          const schemaField =
-            typeof item?.schemaField === 'string'
-              ? item.schemaField.trim() || null
-              : null;
-
-          return {
-            logicalField,
-            schemaField,
-            enabled: Boolean(item?.enabled),
-          } as FieldMapping;
-        })
-        .filter((item): item is FieldMapping => item !== null)
-    : [];
-
-  const byLogicalField = new Map(
-    provided.map((item) => [item.logicalField, item])
-  );
-
-  return LOGICAL_FIELDS.map((logicalField) => {
-    const existing = byLogicalField.get(logicalField.key);
-    return (
-      existing ?? {
-        logicalField: logicalField.key,
-        schemaField: null,
-        enabled: false,
-      }
-    );
-  });
-};
 
 export async function GET(request: NextRequest) {
   try {
