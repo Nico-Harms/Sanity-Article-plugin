@@ -1,45 +1,72 @@
 import { Card, Text, TextInput, Box, Stack, Button, Select } from '@sanity/ui';
+import type { PluginConfig } from '@sanity-notion-llm/shared';
+import type { ConfigFieldKey } from '../tool/types';
 
 interface ApiConfigSectionProps {
-  notionDatabaseUrl: string;
-  notionClientSecret: string;
-  llmApiKey: string;
-  llmModel: string;
-  sanityProjectId: string;
-  sanityToken: string;
-  sanityDataset: string;
-  onNotionDatabaseUrlChange: (value: string) => void;
-  onNotionClientSecretChange: (value: string) => void;
-  onLlmApiKeyChange: (value: string) => void;
-  onLlmModelChange: (value: string) => void;
-  onSanityProjectIdChange: (value: string) => void;
-  onSanityTokenChange: (value: string) => void;
-  onSanityDatasetChange: (value: string) => void;
+  config: PluginConfig;
+  onFieldChange: (field: ConfigFieldKey, value: string) => void;
   onSaveConfiguration: () => void;
   onTestConnection: () => void;
   isSaving: boolean;
   isTesting: boolean;
 }
 
-/*===============================================
-=         API Configuration Section         =
-===============================================*/
+const INPUT_FIELDS: Array<{
+  key: ConfigFieldKey;
+  label: string;
+  helper: string;
+  placeholder?: string;
+  type?: 'text' | 'password';
+}> = [
+  {
+    key: 'notionDatabaseUrl',
+    label: 'Notion Database ID',
+    placeholder: '2849c9a7e45e81e0a190c25132ee5c75',
+    helper: 'The database ID from your Notion database URL (just the ID part)',
+  },
+  {
+    key: 'notionClientSecret',
+    label: 'Notion Client Secret',
+    type: 'password',
+    placeholder: 'secret_...',
+    helper: 'Your Notion integration secret key (starts with "secret_")',
+  },
+  {
+    key: 'llmApiKey',
+    label: 'LLM API Key (Optional)',
+    type: 'password',
+    placeholder: 'sk-... (optional)',
+    helper: 'Your OpenAI or other LLM provider API key - optional for now',
+  },
+  {
+    key: 'sanityProjectId',
+    label: 'Sanity Project ID',
+    placeholder: 'abc123xyz',
+    helper: 'Found in Sanity Manage → Project Settings',
+  },
+  {
+    key: 'sanityToken',
+    label: 'Sanity API Token',
+    type: 'password',
+    placeholder: 'sk...',
+    helper: 'Create a token with Editor permissions in Sanity Manage → API',
+  },
+];
+
+const LLM_MODELS = [
+  { value: 'open-mistral-7b', label: 'Open Mistral 7B (Free Tier)' },
+  { value: 'open-mixtral-8x7b', label: 'Open Mixtral 8x7B (Free Tier)' },
+  { value: 'mistral-large-latest', label: 'Mistral Large (Paid)' },
+  { value: 'mistral-medium-latest', label: 'Mistral Medium (Paid)' },
+  { value: 'gpt-4', label: 'GPT-4 (Paid)' },
+  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Paid)' },
+];
+
+const DATASET_OPTIONS = ['production', 'staging', 'development'];
 
 export function ApiConfigSection({
-  notionDatabaseUrl,
-  notionClientSecret,
-  llmApiKey,
-  llmModel,
-  sanityProjectId,
-  sanityToken,
-  sanityDataset,
-  onNotionDatabaseUrlChange,
-  onNotionClientSecretChange,
-  onLlmApiKeyChange,
-  onLlmModelChange,
-  onSanityProjectIdChange,
-  onSanityTokenChange,
-  onSanityDatasetChange,
+  config,
+  onFieldChange,
   onSaveConfiguration,
   onTestConnection,
   isSaving,
@@ -57,108 +84,44 @@ export function ApiConfigSection({
           configuration is optional for now.
         </Text>
 
-        {/* Notion Database ID */}
-        <Box>
-          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
-            Notion Database ID
-          </Text>
-          <TextInput
-            placeholder="2849c9a7e45e81e0a190c25132ee5c75"
-            value={notionDatabaseUrl}
-            onChange={(event) =>
-              onNotionDatabaseUrlChange(event.currentTarget.value)
-            }
-          />
-          <Text size={1} muted style={{ marginTop: 4 }}>
-            The database ID from your Notion database URL (just the ID part)
-          </Text>
-        </Box>
+        {INPUT_FIELDS.map(({ key, label, helper, placeholder, type }) => (
+          <Box key={key}>
+            <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
+              {label}
+            </Text>
+            <TextInput
+              type={type ?? 'text'}
+              placeholder={placeholder}
+              value={config[key] || ''}
+              onChange={(event) =>
+                onFieldChange(key, event.currentTarget.value)
+              }
+            />
+            <Text size={1} muted style={{ marginTop: 4 }}>
+              {helper}
+            </Text>
+          </Box>
+        ))}
 
-        {/* Notion Client Secret */}
-        <Box>
-          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
-            Notion Client Secret
-          </Text>
-          <TextInput
-            type="password"
-            placeholder="secret_..."
-            value={notionClientSecret}
-            onChange={(event) =>
-              onNotionClientSecretChange(event.currentTarget.value)
-            }
-          />
-          <Text size={1} muted style={{ marginTop: 4 }}>
-            Your Notion integration secret key (starts with "secret_")
-          </Text>
-        </Box>
-
-        {/* LLM API Key - Optional */}
-        <Box>
-          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
-            LLM API Key (Optional)
-          </Text>
-          <TextInput
-            type="password"
-            placeholder="sk-... (optional for now)"
-            value={llmApiKey}
-            onChange={(event) => onLlmApiKeyChange(event.currentTarget.value)}
-          />
-          <Text size={1} muted style={{ marginTop: 4 }}>
-            Your OpenAI or other LLM provider API key - Optional for now
-          </Text>
-        </Box>
-
-        {/* LLM Model Selection */}
         <Box>
           <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
             LLM Model
           </Text>
           <Select
-            value={llmModel}
-            onChange={(event) => onLlmModelChange(event.currentTarget.value)}
+            value={config.llmModel || 'open-mistral-7b'}
+            onChange={(event) =>
+              onFieldChange('llmModel', event.currentTarget.value)
+            }
           >
-            <option value="open-mistral-7b">Open Mistral 7B (Free Tier)</option>
-            <option value="open-mixtral-8x7b">
-              Open Mixtral 8x7B (Free Tier)
-            </option>
-            <option value="mistral-large-latest">Mistral Large (Paid)</option>
-            <option value="mistral-medium-latest">Mistral Medium (Paid)</option>
-            <option value="gpt-4">GPT-4 (Paid)</option>
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo (Paid)</option>
+            {LLM_MODELS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </Select>
           <Text size={1} muted style={{ marginTop: 4 }}>
             Free tier models have generous limits (1B tokens/month). Paid models
             have higher quality but cost per request.
-          </Text>
-        </Box>
-
-        {/* Sanity Configuration */}
-        <Box>
-          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
-            Sanity Project ID
-          </Text>
-          <TextInput
-            value={sanityProjectId}
-            onChange={(e) => onSanityProjectIdChange(e.currentTarget.value)}
-            placeholder="abc123xyz"
-          />
-          <Text size={1} muted style={{ marginTop: 4 }}>
-            Found in Sanity Manage → Project Settings
-          </Text>
-        </Box>
-
-        <Box>
-          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
-            Sanity API Token
-          </Text>
-          <TextInput
-            type="password"
-            value={sanityToken}
-            onChange={(e) => onSanityTokenChange(e.currentTarget.value)}
-            placeholder="sk..."
-          />
-          <Text size={1} muted style={{ marginTop: 4 }}>
-            Create token with Editor permissions in Sanity Manage → API
           </Text>
         </Box>
 
@@ -167,12 +130,16 @@ export function ApiConfigSection({
             Sanity Dataset
           </Text>
           <Select
-            value={sanityDataset}
-            onChange={(e) => onSanityDatasetChange(e.currentTarget.value)}
+            value={config.sanityDataset || 'production'}
+            onChange={(event) =>
+              onFieldChange('sanityDataset', event.currentTarget.value)
+            }
           >
-            <option value="production">production</option>
-            <option value="staging">staging</option>
-            <option value="development">development</option>
+            {DATASET_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
           </Select>
           <Text size={1} muted style={{ marginTop: 4 }}>
             Choose the dataset where content will be created. Most projects use
@@ -180,27 +147,31 @@ export function ApiConfigSection({
           </Text>
         </Box>
 
-        {/* Save and Test Buttons */}
         <Box>
           <Stack space={3}>
             <Button
               text="Save Configuration"
               tone="default"
-              disabled={!notionDatabaseUrl || !notionClientSecret || isSaving}
+              disabled={
+                !config.notionDatabaseUrl ||
+                !config.notionClientSecret ||
+                isSaving
+              }
               loading={isSaving}
               onClick={onSaveConfiguration}
             />
             <Button
               text="Test Connection"
               tone="primary"
-              disabled={!notionDatabaseUrl || !notionClientSecret || isTesting}
+              disabled={
+                !config.notionDatabaseUrl ||
+                !config.notionClientSecret ||
+                isTesting
+              }
               loading={isTesting}
               onClick={onTestConnection}
             />
           </Stack>
-          <Text size={1} muted style={{ marginTop: 8 }}>
-            Save your credentials first, then test the connection
-          </Text>
         </Box>
       </Stack>
     </Card>

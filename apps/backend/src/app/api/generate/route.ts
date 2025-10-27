@@ -3,10 +3,10 @@ import { Client } from '@notionhq/client';
 import {
   getConfigByStudioId,
   createLLMService,
-  createSanityService,
   createSchemaService,
+  createSanityContextFromConfig,
+  createNotionClient,
   decryptSecret,
-  extractContentFromProperties,
   extractSubjectFromProperties,
 } from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
@@ -77,11 +77,15 @@ export async function POST(request: NextRequest) {
       throw new Error('Page not found or not accessible');
     }
 
+    // Fetch the actual page content (notes/content tab)
+    const notionService = createNotionClient(notionClientSecret);
+    const pageContent = await notionService.getPageContent(notionPageId);
+
     // Extract content from Notion page properties
     const notionPageData: NotionPageData = {
       id: notionPage.id,
       properties: notionPage.properties,
-      content: extractContentFromProperties(notionPage.properties),
+      content: pageContent, // Use actual page content instead of properties
       subject: extractSubjectFromProperties(notionPage.properties),
     };
 
@@ -96,48 +100,41 @@ export async function POST(request: NextRequest) {
 
     // Create Sanity draft document
     let sanityDocId: string | null = null;
-    try {
-      // Decrypt Sanity credentials
-      const sanityProjectId = decryptSecret(config.sanityProjectId);
-      const sanityToken = decryptSecret(config.sanityToken);
+    if (config.sanityProjectId && config.sanityToken) {
+      try {
+        const sanityContext = createSanityContextFromConfig(config);
+        const schemaService = createSchemaService(
+          sanityContext.projectId,
+          sanityContext.token,
+          sanityContext.dataset
+        );
 
-      // Create services
-      const sanityService = createSanityService(
-        sanityProjectId,
-        sanityToken,
-        config.sanityDataset
-      );
-      const schemaService = createSchemaService(
-        sanityProjectId,
-        sanityToken,
-        config.sanityDataset
-      );
+        // Prepare content for the specific schema
+        const schemaType = config.selectedSchema || 'article';
+        const rawContent = {
+          ...draft,
+          publishDate: notionPageData.properties.Date, // from Notion
+        };
 
-      // Prepare content for the specific schema
-      const schemaType = config.selectedSchema || 'article';
-      const rawContent = {
-        ...draft,
-        publishDate: notionPageData.properties.Date, // from Notion
-      };
+        const preparedContent = await schemaService.prepareContentForSchema(
+          rawContent,
+          schemaType
+        );
 
-      const preparedContent = await schemaService.prepareContentForSchema(
-        rawContent,
-        schemaType
-      );
+        // Create draft document
+        const sanityDoc = await sanityContext.service.createDraft(
+          schemaType,
+          preparedContent
+        );
 
-      // Create draft document
-      const sanityDoc = await sanityService.createDraft(
-        schemaType,
-        preparedContent
-      );
-
-      sanityDocId = sanityDoc._id;
-    } catch (sanityError) {
-      console.error(
-        '[generate-api] Failed to create Sanity draft:',
-        sanityError
-      );
-      // Continue without failing the entire request
+        sanityDocId = sanityDoc._id;
+      } catch (sanityError) {
+        console.error(
+          '[generate-api] Failed to create Sanity draft:',
+          sanityError
+        );
+        // Continue without failing the entire request
+      }
     }
 
     const response: GenerateResponse = {

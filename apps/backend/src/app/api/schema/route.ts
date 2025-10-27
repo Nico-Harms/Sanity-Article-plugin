@@ -1,9 +1,5 @@
 import { NextRequest } from 'next/server';
-import {
-  getConfigByStudioId,
-  createSchemaService,
-  decryptSecret,
-} from '@/lib/services';
+import { createSchemaService, loadStudioContext } from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
 
 /**
@@ -31,32 +27,20 @@ export async function GET(request: NextRequest) {
       return createCorsResponse({ error: 'studioId is required' }, 400);
     }
 
-    // Load configuration from database
-    const config = await getConfigByStudioId(studioId);
-    if (!config) {
-      return createCorsResponse(
-        { error: 'Configuration not found for this Studio' },
-        404
-      );
+    let context;
+    try {
+      context = await loadStudioContext(studioId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to load configuration';
+      const status = message.includes('not found') ? 404 : 400;
+      return createCorsResponse({ error: message }, status);
     }
 
-    // Validate Sanity configuration
-    if (!config.sanityProjectId || !config.sanityToken) {
-      return createCorsResponse(
-        { error: 'Sanity credentials must be configured' },
-        400
-      );
-    }
-
-    // Decrypt Sanity credentials
-    const sanityProjectId = decryptSecret(config.sanityProjectId);
-    const sanityToken = decryptSecret(config.sanityToken);
-
-    // Create schema service
     const schemaService = createSchemaService(
-      sanityProjectId,
-      sanityToken,
-      config.sanityDataset
+      context.sanity.projectId,
+      context.sanity.token,
+      context.sanity.dataset
     );
 
     if (typeName) {

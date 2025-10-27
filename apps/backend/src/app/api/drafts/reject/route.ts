@@ -1,9 +1,5 @@
 import { NextRequest } from 'next/server';
-import {
-  getConfigByStudioId,
-  createSanityService,
-  decryptSecret,
-} from '@/lib/services';
+import { loadStudioContext } from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
 
 export async function POST(request: NextRequest) {
@@ -17,27 +13,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const config = await getConfigByStudioId(studioId);
-    if (!config) {
-      return createCorsResponse({ error: 'Configuration not found' }, 404);
+    let context;
+    try {
+      context = await loadStudioContext(studioId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to load configuration';
+      const status = message.includes('not found') ? 404 : 400;
+      return createCorsResponse({ error: message }, status);
     }
 
-    // Decrypt Sanity credentials
-    const sanityProjectId = decryptSecret(config.sanityProjectId);
-    const sanityToken = decryptSecret(config.sanityToken);
-
-    // Create Sanity service
-    const sanityService = createSanityService(
-      sanityProjectId,
-      sanityToken,
-      config.sanityDataset
-    );
-
     // Reject the document (mark as rejected)
-    await sanityService.client
-      .patch(documentId)
-      .set({ _approved: false, _rejected: true })
-      .commit();
+    await context.sanity.service.rejectDocument(documentId);
 
     return createCorsResponse({ success: true }, 200);
   } catch (error) {

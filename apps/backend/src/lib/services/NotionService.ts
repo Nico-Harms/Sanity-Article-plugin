@@ -103,7 +103,10 @@ const mapPropertyValues = (
   );
 };
 
-const mapNotionPage = (page: PageObjectResponse): NotionPage => {
+const mapNotionPage = (
+  page: PageObjectResponse,
+  content?: string
+): NotionPage => {
   const rawProperties = (page.properties || {}) as Record<string, any>;
   const title =
     extractPropertyValue(rawProperties?.Name || rawProperties?.Title) ||
@@ -115,6 +118,7 @@ const mapNotionPage = (page: PageObjectResponse): NotionPage => {
     title,
     properties: rawProperties,
     propertyValues: mapPropertyValues(rawProperties),
+    content,
   };
 };
 
@@ -131,6 +135,7 @@ export interface NotionClient {
     status: string,
     propertyName?: string
   ): Promise<NotionPage | null>;
+  getPageContent(pageId: string): Promise<string>;
 }
 
 export const createNotionClient = (apiKey: string): NotionClient => {
@@ -202,9 +207,27 @@ export const createNotionClient = (apiKey: string): NotionClient => {
         page_size: pageSize,
       });
 
-      return response.results
-        .filter((page): page is PageObjectResponse => 'properties' in page)
-        .map((page) => mapNotionPage(page));
+      const pages = response.results.filter(
+        (page): page is PageObjectResponse => 'properties' in page
+      );
+
+      // Always fetch content for each page
+      const pagesWithContent = await Promise.all(
+        pages.map(async (page) => {
+          try {
+            const content = await getPageContent(page.id);
+            return mapNotionPage(page, content);
+          } catch (error) {
+            console.error(
+              `[notion] Failed to get content for page ${page.id}:`,
+              error
+            );
+            return mapNotionPage(page); // Return page without content if content fetch fails
+          }
+        })
+      );
+
+      return pagesWithContent;
     } catch (error) {
       console.error('[notion] Failed to query database:', error);
       return [];
@@ -265,11 +288,79 @@ export const createNotionClient = (apiKey: string): NotionClient => {
     }
   };
 
+  /*===============================================
+  =          Get page content           =
+  ===============================================*/
+
+  const getPageContent = async (pageId: string): Promise<string> => {
+    try {
+      const response = await client.blocks.children.list({
+        block_id: pageId,
+        page_size: 100,
+      });
+
+      // Extract text content from blocks
+      const contentBlocks = response.results
+        .filter((block) => 'type' in block)
+        .map((block) => {
+          if (block.type === 'paragraph' && 'paragraph' in block) {
+            return block.paragraph.rich_text
+              .map((text) => text.plain_text)
+              .join('');
+          }
+          if (block.type === 'heading_1' && 'heading_1' in block) {
+            return `# ${block.heading_1.rich_text
+              .map((text) => text.plain_text)
+              .join('')}`;
+          }
+          if (block.type === 'heading_2' && 'heading_2' in block) {
+            return `## ${block.heading_2.rich_text
+              .map((text) => text.plain_text)
+              .join('')}`;
+          }
+          if (block.type === 'heading_3' && 'heading_3' in block) {
+            return `### ${block.heading_3.rich_text
+              .map((text) => text.plain_text)
+              .join('')}`;
+          }
+          if (
+            block.type === 'bulleted_list_item' &&
+            'bulleted_list_item' in block
+          ) {
+            return `• ${block.bulleted_list_item.rich_text
+              .map((text) => text.plain_text)
+              .join('')}`;
+          }
+          if (
+            block.type === 'numbered_list_item' &&
+            'numbered_list_item' in block
+          ) {
+            return `1. ${block.numbered_list_item.rich_text
+              .map((text) => text.plain_text)
+              .join('')}`;
+          }
+          if (block.type === 'quote' && 'quote' in block) {
+            return `> ${block.quote.rich_text
+              .map((text) => text.plain_text)
+              .join('')}`;
+          }
+          return '';
+        })
+        .filter((text) => text.trim().length > 0);
+
+      return contentBlocks.join('\n\n');
+    } catch (error) {
+      console.error('[notion] Failed to get page content:', error);
+      return '';
+    }
+  };
+
   return {
     testConnection,
     getDatabase,
     queryDatabase,
     updatePageStatus,
+    getPageContent,
   };
 };
 

@@ -2,18 +2,13 @@ import { Card, Text, Stack } from '@sanity/ui';
 import { type PluginConfig } from '@sanity-notion-llm/shared';
 import { ApiConfigSection } from './ApiConfigSection';
 import { ConnectionStatus } from './ConnectionStatus';
+import type { ConfigFieldKey } from '../tool/types';
 
 interface SettingsTabContentProps {
   config: PluginConfig;
   saving: boolean;
   loading: boolean;
-  onNotionDatabaseUrlChange: (value: string) => void;
-  onNotionClientSecretChange: (value: string) => void;
-  onLlmApiKeyChange: (value: string) => void;
-  onLlmModelChange: (value: string) => void;
-  onSanityProjectIdChange: (value: string) => void;
-  onSanityTokenChange: (value: string) => void;
-  onSanityDatasetChange: (value: string) => void;
+  onConfigFieldChange: (field: ConfigFieldKey, value: string) => void;
   onSaveConfiguration: () => void;
   onTestConnection: () => void;
 }
@@ -22,13 +17,7 @@ export function SettingsTabContent({
   config,
   saving,
   loading,
-  onNotionDatabaseUrlChange,
-  onNotionClientSecretChange,
-  onLlmApiKeyChange,
-  onLlmModelChange,
-  onSanityProjectIdChange,
-  onSanityTokenChange,
-  onSanityDatasetChange,
+  onConfigFieldChange,
   onSaveConfiguration,
   onTestConnection,
 }: SettingsTabContentProps) {
@@ -40,20 +29,8 @@ export function SettingsTabContent({
 
       {/* API Configuration */}
       <ApiConfigSection
-        notionDatabaseUrl={config?.notionDatabaseUrl || ''}
-        notionClientSecret={config?.notionClientSecret || ''}
-        llmApiKey={config?.llmApiKey || ''}
-        llmModel={config?.llmModel || 'open-mistral-7b'}
-        sanityProjectId={config?.sanityProjectId || ''}
-        sanityToken={config?.sanityToken || ''}
-        sanityDataset={config?.sanityDataset || 'production'}
-        onNotionDatabaseUrlChange={onNotionDatabaseUrlChange}
-        onNotionClientSecretChange={onNotionClientSecretChange}
-        onLlmApiKeyChange={onLlmApiKeyChange}
-        onLlmModelChange={onLlmModelChange}
-        onSanityProjectIdChange={onSanityProjectIdChange}
-        onSanityTokenChange={onSanityTokenChange}
-        onSanityDatasetChange={onSanityDatasetChange}
+        config={config}
+        onFieldChange={onConfigFieldChange}
         onSaveConfiguration={onSaveConfiguration}
         onTestConnection={onTestConnection}
         isSaving={saving}

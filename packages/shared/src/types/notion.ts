@@ -14,6 +14,11 @@ export interface NotionPage {
    * just need primitive data.
    */
   propertyValues: Record<string, unknown>;
+  /**
+   * The actual page content/notes as plain text extracted from Notion blocks.
+   * This contains the main content area of the page (the "notes" tab).
+   */
+  content?: string;
 }
 
 export interface NotionDatabase {
