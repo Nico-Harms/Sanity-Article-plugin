@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, Text, Stack, Box } from '@sanity/ui';
 import { useProjectId } from 'sanity';
 import { type PluginConfig, type SchemaType } from '@sanity-notion-llm/shared';
