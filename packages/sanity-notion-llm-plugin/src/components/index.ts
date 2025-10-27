@@ -1,6 +1,7 @@
 export { DetectedFieldCard } from './DetectedFieldCard';
 export { ApiConfigSection } from './ApiConfigSection';
 export { ConnectionStatus } from './ConnectionStatus';
+export { InstructionsSection } from './InstructionsSection';
 export { TabbedInterface } from './TabbedInterface';
 export { GenerationSection } from './GenerationSection';
 export { FieldsTabContent } from './FieldsTabContent';

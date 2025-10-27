@@ -21,6 +21,10 @@ export interface PluginConfig {
   errorMessage?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  // Custom instruction fields for LLM content generation
+  generalInstructions?: string;
+  toneInstructions?: string;
+  fieldInstructions?: string;
 }
 
 export interface SchemaField {

@@ -10,12 +10,16 @@ import {
 import { usePluginConfig } from './hooks/usePluginConfig';
 import { useNotionData } from './hooks/useNotionData';
 import { ApiClient } from '../services/apiClient';
+import { useDebounce } from '../utils/debounce';
 
 export function NotionLLMTool() {
   const projectId = useProjectId();
   const { state, updateConfig, saveConfig, setSchema } =
     usePluginConfig(projectId);
   const notionData = useNotionData(projectId, state.config);
+
+  // Debounced save function for field purpose changes (3 second delay)
+  const debouncedSaveConfig = useDebounce(saveConfig, 3000);
 
   if (state.loading && !state.config) {
     return (
@@ -50,14 +54,17 @@ export function NotionLLMTool() {
           ),
         }))
       }
-      onFieldPurposeChange={(fieldName, purpose) =>
+      onFieldPurposeChange={(fieldName, purpose) => {
+        // Update UI immediately for responsive feel
         updateConfig((current) => ({
           ...current,
           detectedFields: current.detectedFields.map((field) =>
             field.name === fieldName ? { ...field, purpose } : field
           ),
-        }))
-      }
+        }));
+        // Debounced save to prevent excessive API calls
+        debouncedSaveConfig();
+      }}
       onRefreshSchema={() => void setSchema(config.selectedSchema)}
     />
   );
@@ -120,9 +127,7 @@ export function NotionLLMTool() {
           <Text size={3} weight="bold">
             Notion LLM Content Generator
           </Text>
-          {state.error && (
-            <Text size={1}>{state.error}</Text>
-          )}
+          {state.error && <Text size={1}>{state.error}</Text>}
         </Box>
 
         <TabbedInterface tabs={tabs} defaultTab="fields" />

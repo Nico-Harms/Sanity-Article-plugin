@@ -95,7 +95,8 @@ export async function POST(request: NextRequest) {
     const draft = await llmService.generateArticle(
       notionPageData,
       config.detectedFields,
-      config.selectedSchema || 'article'
+      config.selectedSchema || 'article',
+      config
     );
 
     // Create Sanity draft document

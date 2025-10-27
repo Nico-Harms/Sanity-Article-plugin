@@ -5,9 +5,7 @@ import type { ConfigFieldKey } from '../tool/types';
 interface ApiConfigSectionProps {
   config: PluginConfig;
   onFieldChange: (field: ConfigFieldKey, value: string) => void;
-  onSaveConfiguration: () => void;
   onTestConnection: () => void;
-  isSaving: boolean;
   isTesting: boolean;
 }
 
@@ -67,9 +65,7 @@ const DATASET_OPTIONS = ['production', 'staging', 'development'];
 export function ApiConfigSection({
   config,
   onFieldChange,
-  onSaveConfiguration,
   onTestConnection,
-  isSaving,
   isTesting,
 }: ApiConfigSectionProps) {
   return (
@@ -148,30 +144,17 @@ export function ApiConfigSection({
         </Box>
 
         <Box>
-          <Stack space={3}>
-            <Button
-              text="Save Configuration"
-              tone="default"
-              disabled={
-                !config.notionDatabaseUrl ||
-                !config.notionClientSecret ||
-                isSaving
-              }
-              loading={isSaving}
-              onClick={onSaveConfiguration}
-            />
-            <Button
-              text="Test Connection"
-              tone="primary"
-              disabled={
-                !config.notionDatabaseUrl ||
-                !config.notionClientSecret ||
-                isTesting
-              }
-              loading={isTesting}
-              onClick={onTestConnection}
-            />
-          </Stack>
+          <Button
+            text="Test Connection"
+            tone="primary"
+            disabled={
+              !config.notionDatabaseUrl ||
+              !config.notionClientSecret ||
+              isTesting
+            }
+            loading={isTesting}
+            onClick={onTestConnection}
+          />
         </Box>
       </Stack>
     </Card>

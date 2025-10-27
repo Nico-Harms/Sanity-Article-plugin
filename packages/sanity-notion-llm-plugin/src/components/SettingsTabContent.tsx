@@ -1,7 +1,8 @@
-import { Card, Text, Stack } from '@sanity/ui';
+import { Card, Text, Stack, Button, Box } from '@sanity/ui';
 import { type PluginConfig } from '@sanity-notion-llm/shared';
 import { ApiConfigSection } from './ApiConfigSection';
 import { ConnectionStatus } from './ConnectionStatus';
+import { InstructionsSection } from './InstructionsSection';
 import type { ConfigFieldKey } from '../tool/types';
 
 interface SettingsTabContentProps {
@@ -22,7 +23,7 @@ export function SettingsTabContent({
   onTestConnection,
 }: SettingsTabContentProps) {
   return (
-    <Stack space={4}>
+    <Stack space={5}>
       <Text size={2} weight="medium">
         API Configuration & Settings
       </Text>
@@ -31,9 +32,7 @@ export function SettingsTabContent({
       <ApiConfigSection
         config={config}
         onFieldChange={onConfigFieldChange}
-        onSaveConfiguration={onSaveConfiguration}
         onTestConnection={onTestConnection}
-        isSaving={saving}
         isTesting={loading}
       />
 
@@ -44,12 +43,38 @@ export function SettingsTabContent({
         errorMessage={config?.errorMessage}
       />
 
-      {/* Save Status */}
-      {saving && (
-        <Card padding={3} tone="transparent" border>
-          <Text size={1}>Saving configuration...</Text>
+      {/* Content Generation Instructions */}
+      <InstructionsSection
+        config={config}
+        onInstructionChange={onConfigFieldChange}
+      />
+
+      {/* Unified Save Button */}
+      <Box>
+        <Card padding={3} border radius={2} shadow={1}>
+          <Stack space={2}>
+            <Text size={2} weight="semibold">
+              Save Configuration
+            </Text>
+            <Text size={1} muted>
+              Save all configuration settings including API credentials and
+              content generation instructions.
+            </Text>
+            <Button
+              text="Save All Settings"
+              style={{ width: '200px' }}
+              tone="primary"
+              disabled={
+                !config.notionDatabaseUrl ||
+                !config.notionClientSecret ||
+                saving
+              }
+              loading={saving}
+              onClick={onSaveConfiguration}
+            />
+          </Stack>
         </Card>
-      )}
+      </Box>
     </Stack>
   );
 }

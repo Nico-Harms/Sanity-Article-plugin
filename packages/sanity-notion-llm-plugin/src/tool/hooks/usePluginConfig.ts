@@ -64,7 +64,14 @@ export function usePluginConfig(studioId: string | null) {
         if (cancelled) return;
 
         const config = configResp.config ?? createDefaultConfig(studioId);
-        lastSaved.current = JSON.stringify(config);
+        // Track saved state excluding instruction fields
+        const {
+          generalInstructions,
+          toneInstructions,
+          fieldInstructions,
+          ...configWithoutInstructions
+        } = config;
+        lastSaved.current = JSON.stringify(configWithoutInstructions);
 
         setState({
           config,
@@ -79,7 +86,14 @@ export function usePluginConfig(studioId: string | null) {
         if (cancelled) return;
 
         const fallback = createDefaultConfig(studioId);
-        lastSaved.current = JSON.stringify(fallback);
+        // Track saved state excluding instruction fields
+        const {
+          generalInstructions,
+          toneInstructions,
+          fieldInstructions,
+          ...configWithoutInstructions
+        } = fallback;
+        lastSaved.current = JSON.stringify(configWithoutInstructions);
 
         setState({
           config: fallback,
@@ -113,7 +127,14 @@ export function usePluginConfig(studioId: string | null) {
     try {
       const response = await ApiClient.saveConfig(configToPersist);
       const nextConfig = response.config ?? configToPersist;
-      lastSaved.current = JSON.stringify(nextConfig);
+      // Track saved state excluding instruction fields
+      const {
+        generalInstructions,
+        toneInstructions,
+        fieldInstructions,
+        ...configWithoutInstructions
+      } = nextConfig;
+      lastSaved.current = JSON.stringify(configWithoutInstructions);
 
       setState((prev) => ({
         ...prev,
@@ -134,17 +155,24 @@ export function usePluginConfig(studioId: string | null) {
   // Manual save (used by the settings tab button)
   const saveConfig = useCallback(async () => {
     if (!studioId) return;
-    const snapshot =
-      state.config ?? createDefaultConfig(studioId);
+    const snapshot = state.config ?? createDefaultConfig(studioId);
     setState((prev) => ({ ...prev, saving: true, error: null }));
     await persist(snapshot);
   }, [persist, state.config, studioId]);
 
-  // Automatic persistence when config changes
+  // Automatic persistence when config changes (excluding instruction fields)
   useEffect(() => {
     if (!studioId || !state.config || state.loading) return;
 
-    const payload = JSON.stringify(state.config);
+    // Create a copy of config without instruction fields for comparison
+    const {
+      generalInstructions,
+      toneInstructions,
+      fieldInstructions,
+      ...configWithoutInstructions
+    } = state.config;
+    const payload = JSON.stringify(configWithoutInstructions);
+
     if (payload === lastSaved.current) return;
 
     setState((prev) => ({ ...prev, saving: true }));

@@ -5,4 +5,7 @@ export type ConfigFieldKey =
   | 'llmModel'
   | 'sanityProjectId'
   | 'sanityToken'
-  | 'sanityDataset';
+  | 'sanityDataset'
+  | 'generalInstructions'
+  | 'toneInstructions'
+  | 'fieldInstructions';

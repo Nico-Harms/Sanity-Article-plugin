@@ -3,6 +3,7 @@ import type {
   NotionPageData,
   SanityDraftData,
   DetectedField,
+  PluginConfig,
 } from '@sanity-notion-llm/shared';
 
 /*===============================================
@@ -52,15 +53,22 @@ export class LLMService {
    * @param notionPage - The Notion page data containing content and subject
    * @param detectedFields - Array of detected fields with their purposes
    * @param schemaType - The Sanity schema type name (e.g., "article", "blogPost")
+   * @param config - Plugin configuration containing custom instructions
    * @returns Structured data matching Sanity schema fields
    */
   async generateArticle(
     notionPage: NotionPageData,
     detectedFields: DetectedField[],
-    schemaType: string
+    schemaType: string,
+    config: PluginConfig
   ): Promise<SanityDraftData> {
     try {
-      const prompt = this.buildPrompt(notionPage, detectedFields, schemaType);
+      const prompt = this.buildPrompt(
+        notionPage,
+        detectedFields,
+        schemaType,
+        config
+      );
       const response = await this.callLLM(prompt);
       return this.parseResponse(response, detectedFields);
     } catch (error) {
@@ -77,7 +85,8 @@ export class LLMService {
   private buildPrompt(
     notionPage: NotionPageData,
     detectedFields: DetectedField[],
-    schemaType: string
+    schemaType: string,
+    config: PluginConfig
   ): string {
     const enabledFields = detectedFields.filter((field) => field.enabled);
 
@@ -88,30 +97,45 @@ export class LLMService {
       })
       .join('\n');
 
+    // Build custom instructions section
+    const customInstructions = [];
+    if (config.generalInstructions) {
+      customInstructions.push(
+        `GENERAL INSTRUCTIONS:\n${config.generalInstructions}`
+      );
+    }
+    if (config.toneInstructions) {
+      customInstructions.push(`TONE & STYLE:\n${config.toneInstructions}`);
+    }
+    if (config.fieldInstructions) {
+      customInstructions.push(
+        `FIELD-SPECIFIC INSTRUCTIONS:\n${config.fieldInstructions}`
+      );
+    }
+
+    const customInstructionsSection =
+      customInstructions.length > 0
+        ? `\n\nCUSTOM INSTRUCTIONS:\n${customInstructions.join('\n\n')}`
+        : '';
+
     return `You are a content writer creating a ${schemaType} document for a Sanity CMS.
 
 CONTENT PLAN:
 Subject: ${notionPage.subject}
 Content: ${notionPage.content}
 
-TASK:
-Generate content for the following fields based on the content plan above. Each field has a specific purpose:
+FIELDS TO GENERATE:
+${fieldInstructions}${customInstructionsSection}
 
-${fieldInstructions}
-
-Return ONLY a valid JSON object with the following structure:
+REQUIREMENTS:
+- Return ONLY a valid JSON object with the following structure:
 {
 ${enabledFields.map((field) => `  "${field.name}": "generated_value"`).join(',\n')}
 }
-
-REQUIREMENTS:
-- Generate engaging, well-structured content for each field
-- Respect each field's stated purpose
-- Keep content concise and focused
 - Ensure all enabled fields are populated
-- Return ONLY the JSON object, no additional text
 - Escape all quotes, newlines, and special characters properly
 - Use \\n for line breaks, \\" for quotes
+- Return ONLY the JSON object, no additional text
 
 Generate the content now:`;
   }
