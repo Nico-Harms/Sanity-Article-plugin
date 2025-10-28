@@ -161,23 +161,25 @@ export function usePluginConfig(studioId: string | null) {
   }, [persist, state.config, studioId]);
 
   // Automatic persistence when config changes (excluding instruction fields)
-  useEffect(() => {
-    if (!studioId || !state.config || state.loading) return;
+  // DISABLED: Field purpose changes are handled by debounced save in NotionLLMTool
+  // This prevents double saves when typing in field purposes
+  // useEffect(() => {
+  //   if (!studioId || !state.config || state.loading) return;
 
-    // Create a copy of config without instruction fields for comparison
-    const {
-      generalInstructions,
-      toneInstructions,
-      fieldInstructions,
-      ...configWithoutInstructions
-    } = state.config;
-    const payload = JSON.stringify(configWithoutInstructions);
+  //   // Create a copy of config without instruction fields for comparison
+  //   const {
+  //     generalInstructions,
+  //     toneInstructions,
+  //     fieldInstructions,
+  //     ...configWithoutInstructions
+  //   } = state.config;
+  //   const payload = JSON.stringify(configWithoutInstructions);
 
-    if (payload === lastSaved.current) return;
+  //   if (payload === lastSaved.current) return;
 
-    setState((prev) => ({ ...prev, saving: true }));
-    void persist(state.config);
-  }, [persist, state.config, state.loading, studioId]);
+  //   setState((prev) => ({ ...prev, saving: true }));
+  //   void persist(state.config);
+  // }, [persist, state.config, state.loading, studioId]);
 
   // Update schema + fetch detected fields
   const setSchema = useCallback(

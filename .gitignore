@@ -58,3 +58,4 @@ out/
 .cursor/
 apps/backend/.env.example
 DEPLOYMENT.md
+.vercel

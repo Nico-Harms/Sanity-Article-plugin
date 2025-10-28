@@ -58,6 +58,12 @@ export class SanityService {
       _approved: false,
       _rejected: false,
     };
+    // this.client.action({
+    //   actions: ('publish'),
+    //   params: {
+    //     document: docWithMeta,
+    //   },
+    // });
     return this.client.create(docWithMeta);
   }
 
@@ -68,7 +74,11 @@ export class SanityService {
     return this.client.fetch(query);
   }
 
-  // Approve a draft (marks as approved, doesn't publish yet)
+  // Approve a document - not funcitonal yet
+  /*===============================================
+  =          NOT WORKING            =
+  ===============================================*/
+
   async approveDocument(documentId: string) {
     return this.client
       .patch(documentId)
