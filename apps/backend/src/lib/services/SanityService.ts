@@ -52,25 +52,32 @@ export class SanityService {
 
   // Create a draft document
   async createDraft(schemaType: string, document: Record<string, any>) {
+    // Generate a random ID and prefix with 'drafts.' to ensure it's saved as a draft
+    const draftId = `drafts.${this.generateId()}`;
+
     const docWithMeta = {
       ...document,
+      _id: draftId,
       _type: schemaType,
       _approved: false,
       _rejected: false,
     };
-    // this.client.action({
-    //   actions: ('publish'),
-    //   params: {
-    //     document: docWithMeta,
-    //   },
-    // });
+
     return this.client.create(docWithMeta);
+  }
+
+  // Generate a random ID for draft documents
+  private generateId(): string {
+    return (
+      Math.random().toString(36).substring(2, 15) +
+      Math.random().toString(36).substring(2, 15)
+    );
   }
 
   // Query draft documents
   async queryDrafts(options: { type?: string }) {
     const { type } = options;
-    const query = `*[_type == "${type || 'article'}" && _approved == false && _rejected == false]`;
+    const query = `*[_type == "${type || 'article'}" && _id in path("drafts.**") && _approved == false && _rejected == false]`;
     return this.client.fetch(query);
   }
 
@@ -92,6 +99,33 @@ export class SanityService {
       .patch(documentId)
       .set({ _approved: false, _rejected: true })
       .commit();
+  }
+
+  // Publish a draft (remove drafts. prefix to make it published)
+  async publishDraft(documentId: string) {
+    // First, get the draft document
+    const draft = await this.client.getDocument(documentId);
+    if (!draft) {
+      throw new Error(`Draft document ${documentId} not found`);
+    }
+
+    // Create the published version by removing the drafts. prefix
+    const publishedId = documentId.replace('drafts.', '');
+
+    // Create the published document
+    const { _id, ...draftWithoutId } = draft;
+    const publishedDoc = {
+      ...draftWithoutId,
+      _id: publishedId,
+    };
+
+    // Create the published document
+    const result = await this.client.create(publishedDoc);
+
+    // Delete the draft
+    await this.client.delete(documentId);
+
+    return result;
   }
 }
 
