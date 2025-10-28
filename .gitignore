@@ -57,3 +57,4 @@ out/
 # Cursor IDE
 .cursor/
 apps/backend/.env.example
+DEPLOYMENT.md

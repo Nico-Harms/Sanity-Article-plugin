@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/daily",
+      "schedule": "0 9 * * *"
+    }
+  ],
+  "buildCommand": "npm run build --workspace=packages/shared && npm run build --workspace=packages/sanity-notion-llm-plugin && npm run build --workspace=apps/backend",
+  "outputDirectory": "apps/backend/.next",
+  "installCommand": "npm install",
+  "framework": "nextjs"
+}

@@ -19,6 +19,7 @@
     "dev:studio": "cd apps/studio/plugin-project && npm run dev",
     "build:all": "npm run build --workspaces",
     "build:packages": "npm run build --workspace=packages/shared --workspace=packages/sanity-notion-llm-plugin",
+    "build:backend": "npm run build:packages && npm run build --workspace=apps/backend",
     "start:all": "npm run dev:all"
   },
   "devDependencies": {

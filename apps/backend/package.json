@@ -5,7 +5,8 @@
   "description": "Next.js backend for Notion API integration",
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "next build",
+    "build": "npm run build:packages && next build",
+    "build:packages": "cd ../../packages/shared && npm run build && cd ../sanity-notion-llm-plugin && npm run build",
     "start": "next start -p 3001",
     "type-check": "tsc --noEmit"
   },
