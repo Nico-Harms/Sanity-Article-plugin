@@ -1,7 +1,5 @@
 apps/frontend
 apps/studio
-packages/sanity-notion-llm-plugin/src
-packages/shared/src
 node_modules
 .git
 *.log

@@ -1,39 +1,29 @@
 import { Card, Text, Box, Switch, TextArea, Flex, Stack } from '@sanity/ui';
 import type { DetectedField } from '@sanity-notion-llm/shared';
 
-/*===============================================
-|=            DetectedFieldCard                 =
-===============================================*/
-
-/**
- * DETECTED FIELD CARD COMPONENT
- *
- * Displays a single detected Sanity schema field with toggle and purpose input.
- * Allows users to enable/disable fields and describe what content should be generated.
- *
- * Features:
- * - Field Toggle: Enable/disable field for content generation
- * - Purpose Input: Describe what content should be generated for this field
- * - Visual Feedback: Different styling for enabled/disabled fields
- * - Type Display: Shows the Sanity field type (string, blockContent, etc.)
- *
- * Props:
- * - field: DetectedField object with name, type, title, enabled, purpose
- * - onToggle: Callback when field is enabled/disabled
- * - onPurposeChange: Callback when purpose description changes
- */
-
-interface DetectedFieldCardProps {
+interface SimpleFieldCardProps {
   field: DetectedField;
   onToggle: (enabled: boolean) => void;
   onPurposeChange: (purpose: string) => void;
 }
 
-export function DetectedFieldCard({
+/**
+ * Simple field card component for displaying and editing detected fields
+ *
+ * This component handles only UI interactions and delegates all state management
+ * to parent components. It provides a clean interface for:
+ * - Toggling field enabled/disabled state
+ * - Editing field purpose/description text
+ *
+ * @param field - The detected field data to display
+ * @param onToggle - Callback when the enabled switch is toggled
+ * @param onPurposeChange - Callback when the purpose text is changed
+ */
+export function SimpleFieldCard({
   field,
   onToggle,
   onPurposeChange,
-}: DetectedFieldCardProps) {
+}: SimpleFieldCardProps) {
   return (
     <Card
       padding={4}

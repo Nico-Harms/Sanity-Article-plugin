@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PluginConfig, SchemaType } from '@sanity-notion-llm/shared';
+import type {
+  PluginConfig,
+  SchemaType,
+  DetectedField,
+} from '@sanity-notion-llm/shared';
 import { ApiClient } from '../../services/apiClient';
+import { debounce } from '../../utils/debounce';
 
 export interface PluginConfigState {
   config: PluginConfig | null;
@@ -24,6 +29,15 @@ const createDefaultConfig = (studioId: string): PluginConfig => ({
   isActive: true,
 });
 
+/**
+ * Main plugin configuration hook with smart field saving
+ *
+ * Handles:
+ * - Loading configuration and schema types
+ * - Smart field saving (immediate for boolean, debounced for text)
+ * - Manual configuration saving
+ * - Schema selection and field detection
+ */
 export function usePluginConfig(studioId: string | null) {
   const [state, setState] = useState<PluginConfigState>({
     config: null,
@@ -33,11 +47,10 @@ export function usePluginConfig(studioId: string | null) {
     error: null,
   });
 
-  const lastSaved = useRef<string | null>(null);
+  const previousFieldsRef = useRef<string>('');
+  const isSavingRef = useRef<boolean>(false);
 
-  // ---------------------------------------------------------------------------
-  // Load configuration + schema types
-  // ---------------------------------------------------------------------------
+  // Load configuration and schema types
   useEffect(() => {
     if (!studioId) {
       setState({
@@ -47,7 +60,6 @@ export function usePluginConfig(studioId: string | null) {
         saving: false,
         error: 'Missing studio identifier.',
       });
-      lastSaved.current = null;
       return;
     }
 
@@ -64,15 +76,6 @@ export function usePluginConfig(studioId: string | null) {
         if (cancelled) return;
 
         const config = configResp.config ?? createDefaultConfig(studioId);
-        // Track saved state excluding instruction fields
-        const {
-          generalInstructions,
-          toneInstructions,
-          fieldInstructions,
-          ...configWithoutInstructions
-        } = config;
-        lastSaved.current = JSON.stringify(configWithoutInstructions);
-
         setState({
           config,
           schemaTypes: schemaResp.schemas ?? [],
@@ -81,22 +84,11 @@ export function usePluginConfig(studioId: string | null) {
           error: null,
         });
       } catch (error) {
-        console.error('[usePluginConfig] load failed', error);
-
+        console.error('[usePluginConfig] Load failed:', error);
         if (cancelled) return;
 
-        const fallback = createDefaultConfig(studioId);
-        // Track saved state excluding instruction fields
-        const {
-          generalInstructions,
-          toneInstructions,
-          fieldInstructions,
-          ...configWithoutInstructions
-        } = fallback;
-        lastSaved.current = JSON.stringify(configWithoutInstructions);
-
         setState({
-          config: fallback,
+          config: createDefaultConfig(studioId),
           schemaTypes: [],
           loading: false,
           saving: false,
@@ -111,9 +103,7 @@ export function usePluginConfig(studioId: string | null) {
     };
   }, [studioId]);
 
-  // ---------------------------------------------------------------------------
-  // Helpers
-  // ---------------------------------------------------------------------------
+  // Update config state
   const updateConfig = useCallback(
     (updater: (current: PluginConfig) => PluginConfig) => {
       setState((prev) =>
@@ -123,18 +113,11 @@ export function usePluginConfig(studioId: string | null) {
     []
   );
 
+  // Save configuration to backend
   const persist = useCallback(async (configToPersist: PluginConfig) => {
     try {
       const response = await ApiClient.saveConfig(configToPersist);
       const nextConfig = response.config ?? configToPersist;
-      // Track saved state excluding instruction fields
-      const {
-        generalInstructions,
-        toneInstructions,
-        fieldInstructions,
-        ...configWithoutInstructions
-      } = nextConfig;
-      lastSaved.current = JSON.stringify(configWithoutInstructions);
 
       setState((prev) => ({
         ...prev,
@@ -143,7 +126,7 @@ export function usePluginConfig(studioId: string | null) {
         error: response.error ?? null,
       }));
     } catch (error) {
-      console.error('[usePluginConfig] save failed', error);
+      console.error('[usePluginConfig] Save failed:', error);
       setState((prev) => ({
         ...prev,
         saving: false,
@@ -152,7 +135,76 @@ export function usePluginConfig(studioId: string | null) {
     }
   }, []);
 
-  // Manual save (used by the settings tab button)
+  // Smart field save function
+  const saveFields = useCallback(
+    async (fields: DetectedField[]) => {
+      if (isSavingRef.current) return;
+
+      isSavingRef.current = true;
+      try {
+        const currentConfig = await ApiClient.loadConfig(studioId!);
+        if (currentConfig.config) {
+          await ApiClient.saveConfig({
+            ...currentConfig.config,
+            detectedFields: fields,
+          });
+        }
+      } catch (error) {
+        console.error('[usePluginConfig] Field save failed:', error);
+      } finally {
+        isSavingRef.current = false;
+      }
+    },
+    [studioId]
+  );
+
+  // Debounced save for text changes
+  const debouncedFieldSave = useCallback(debounce(saveFields, 3000), [
+    saveFields,
+  ]);
+
+  // Smart field change detection and saving
+  useEffect(() => {
+    if (!state.config?.detectedFields || !studioId) return;
+
+    const currentFieldsString = JSON.stringify(state.config.detectedFields);
+
+    // Skip if no changes
+    if (previousFieldsRef.current === currentFieldsString) return;
+
+    const previousFields = previousFieldsRef.current
+      ? JSON.parse(previousFieldsRef.current)
+      : [];
+    const currentFields = state.config.detectedFields;
+
+    // Detect change types
+    const hasBooleanChanges = previousFields.some(
+      (prevField: DetectedField, index: number) => {
+        const currentField = currentFields[index];
+        return currentField && prevField.enabled !== currentField.enabled;
+      }
+    );
+
+    const hasTextChanges = previousFields.some(
+      (prevField: DetectedField, index: number) => {
+        const currentField = currentFields[index];
+        return currentField && prevField.purpose !== currentField.purpose;
+      }
+    );
+
+    // Save based on change type
+    if (hasBooleanChanges) {
+      // Boolean changes: save immediately
+      saveFields(currentFields);
+    } else if (hasTextChanges) {
+      // Text changes: save with debounce
+      debouncedFieldSave(currentFields);
+    }
+
+    previousFieldsRef.current = currentFieldsString;
+  }, [state.config?.detectedFields, saveFields, debouncedFieldSave, studioId]);
+
+  // Manual save (for settings tab button)
   const saveConfig = useCallback(async () => {
     if (!studioId) return;
     const snapshot = state.config ?? createDefaultConfig(studioId);
@@ -160,28 +212,7 @@ export function usePluginConfig(studioId: string | null) {
     await persist(snapshot);
   }, [persist, state.config, studioId]);
 
-  // Automatic persistence when config changes (excluding instruction fields)
-  // DISABLED: Field purpose changes are handled by debounced save in NotionLLMTool
-  // This prevents double saves when typing in field purposes
-  // useEffect(() => {
-  //   if (!studioId || !state.config || state.loading) return;
-
-  //   // Create a copy of config without instruction fields for comparison
-  //   const {
-  //     generalInstructions,
-  //     toneInstructions,
-  //     fieldInstructions,
-  //     ...configWithoutInstructions
-  //   } = state.config;
-  //   const payload = JSON.stringify(configWithoutInstructions);
-
-  //   if (payload === lastSaved.current) return;
-
-  //   setState((prev) => ({ ...prev, saving: true }));
-  //   void persist(state.config);
-  // }, [persist, state.config, state.loading, studioId]);
-
-  // Update schema + fetch detected fields
+  // Update schema and fetch detected fields
   const setSchema = useCallback(
     async (schemaName: string | null) => {
       if (!studioId || !state.config) return;
@@ -207,7 +238,7 @@ export function usePluginConfig(studioId: string | null) {
           }));
         }
       } catch (error) {
-        console.error('[usePluginConfig] fetch fields failed', error);
+        console.error('[usePluginConfig] Fetch fields failed:', error);
         setState((prev) => ({
           ...prev,
           error: 'Unable to load fields for selected schema.',

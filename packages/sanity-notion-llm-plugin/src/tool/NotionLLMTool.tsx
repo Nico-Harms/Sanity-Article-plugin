@@ -2,24 +2,21 @@ import { Card, Text, Stack, Box } from '@sanity/ui';
 import { useProjectId } from 'sanity';
 import {
   TabbedInterface,
-  FieldsTabContent,
+  SimpleFieldsTabContent,
   SettingsTabContent,
   GenerateTabContent,
   DraftReviewSection,
 } from '../components';
 import { usePluginConfig } from './hooks/usePluginConfig';
+import type { PluginConfig, DetectedField } from '@sanity-notion-llm/shared';
 import { useNotionData } from './hooks/useNotionData';
 import { ApiClient } from '../services/apiClient';
-import { useDebounce } from '../utils/debounce';
 
 export function NotionLLMTool() {
   const projectId = useProjectId();
   const { state, updateConfig, saveConfig, setSchema } =
     usePluginConfig(projectId);
   const notionData = useNotionData(projectId, state.config);
-
-  // Debounced save function for field purpose changes (3 second delay)
-  const debouncedSaveConfig = useDebounce(saveConfig, 3000);
 
   if (state.loading && !state.config) {
     return (
@@ -42,29 +39,26 @@ export function NotionLLMTool() {
   const config = state.config;
 
   const fieldsTabContent = (
-    <FieldsTabContent
+    <SimpleFieldsTabContent
       config={config}
       schemaTypes={state.schemaTypes}
       onSchemaChange={(schema) => void setSchema(schema)}
       onFieldToggle={(fieldName, enabled) =>
-        updateConfig((current) => ({
+        updateConfig((current: PluginConfig) => ({
           ...current,
-          detectedFields: current.detectedFields.map((field) =>
+          detectedFields: current.detectedFields.map((field: DetectedField) =>
             field.name === fieldName ? { ...field, enabled } : field
           ),
         }))
       }
-      onFieldPurposeChange={(fieldName, purpose) => {
-        // Update UI immediately for responsive feel
-        updateConfig((current) => ({
+      onFieldPurposeChange={(fieldName, purpose) =>
+        updateConfig((current: PluginConfig) => ({
           ...current,
-          detectedFields: current.detectedFields.map((field) =>
+          detectedFields: current.detectedFields.map((field: DetectedField) =>
             field.name === fieldName ? { ...field, purpose } : field
           ),
-        }));
-        // Debounced save to prevent excessive API calls
-        debouncedSaveConfig();
-      }}
+        }))
+      }
       onRefreshSchema={() => void setSchema(config.selectedSchema)}
     />
   );
@@ -75,20 +69,23 @@ export function NotionLLMTool() {
       saving={state.saving}
       loading={state.loading}
       onConfigFieldChange={(field, value) =>
-        updateConfig((current) => ({ ...current, [field]: value }))
+        updateConfig((current: PluginConfig) => ({
+          ...current,
+          [field]: value,
+        }))
       }
       onSaveConfiguration={saveConfig}
       onTestConnection={async () => {
         try {
           const response = await ApiClient.getNotionData(config.studioId);
-          updateConfig((current) => ({
+          updateConfig((current: PluginConfig) => ({
             ...current,
             isActive: !response.error,
             errorMessage: response.error ?? undefined,
           }));
         } catch (error) {
           console.error('[NotionLLMTool] Connection test failed:', error);
-          updateConfig((current) => ({
+          updateConfig((current: PluginConfig) => ({
             ...current,
             isActive: false,
             errorMessage:

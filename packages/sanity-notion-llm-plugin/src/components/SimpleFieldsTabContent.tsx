@@ -1,8 +1,8 @@
 import { Card, Text, Stack, Select, Box, Button, Flex } from '@sanity/ui';
-import { DetectedFieldCard } from './DetectedFieldCard';
+import { SimpleFieldCard } from './SimpleFieldCard';
 import type { PluginConfig, SchemaType } from '@sanity-notion-llm/shared';
 
-interface FieldsTabContentProps {
+interface SimpleFieldsTabContentProps {
   config: PluginConfig;
   schemaTypes: SchemaType[];
   onSchemaChange: (schemaName: string) => void;
@@ -10,29 +10,33 @@ interface FieldsTabContentProps {
   onFieldPurposeChange: (fieldName: string, purpose: string) => void;
   onRefreshSchema: () => void;
 }
-/*===============================================
-=          Fields Tab Content           =
-===============================================*/
 
 /**
- * FIELDS TAB CONTENT COMPONENT
+ * Simplified fields tab content for configuring detected fields
  *
- * Displays the fields configuration section of the Notion LLM plugin.
- * Allows users to select a Sanity schema and configure detected fields.
+ * This component provides a clean interface for:
+ * - Selecting which Sanity schema to use for content generation
+ * - Toggling detected fields on/off
+ * - Setting field purposes/descriptions for LLM generation
  *
- * Features:
- * - Schema Selection: Choose a Sanity schema for content generation
- * - Detected Fields: Toggle fields on/off and describe what each should contain
- * - Refresh Schema: Refresh the list of detected fields
+ * All state management is handled by parent components through callbacks.
+ * This separation ensures the component is reusable and testable.
+ *
+ * @param config - Current plugin configuration
+ * @param schemaTypes - Available Sanity schema types
+ * @param onSchemaChange - Callback when schema selection changes
+ * @param onFieldToggle - Callback when field enabled state changes
+ * @param onFieldPurposeChange - Callback when field purpose text changes
+ * @param onRefreshSchema - Callback to refresh schema fields
  */
-export function FieldsTabContent({
+export function SimpleFieldsTabContent({
   config,
   schemaTypes,
   onSchemaChange,
   onFieldToggle,
   onFieldPurposeChange,
   onRefreshSchema,
-}: FieldsTabContentProps) {
+}: SimpleFieldsTabContentProps) {
   return (
     <Stack space={5}>
       {/* Header */}
@@ -91,7 +95,7 @@ export function FieldsTabContent({
             {/* Fields List */}
             <Stack space={3}>
               {config?.detectedFields?.map((field) => (
-                <DetectedFieldCard
+                <SimpleFieldCard
                   key={field.name}
                   field={field}
                   onToggle={(enabled) => onFieldToggle(field.name, enabled)}

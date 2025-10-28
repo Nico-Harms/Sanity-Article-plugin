@@ -1,10 +1,10 @@
-export { DetectedFieldCard } from './DetectedFieldCard';
 export { ApiConfigSection } from './ApiConfigSection';
 export { ConnectionStatus } from './ConnectionStatus';
 export { InstructionsSection } from './InstructionsSection';
 export { TabbedInterface } from './TabbedInterface';
 export { GenerationSection } from './GenerationSection';
-export { FieldsTabContent } from './FieldsTabContent';
+export { SimpleFieldsTabContent } from './SimpleFieldsTabContent';
+export { SimpleFieldCard } from './SimpleFieldCard';
 export { SettingsTabContent } from './SettingsTabContent';
 export { GenerateTabContent } from './GenerateTabContent';
 export { DraftReviewSection } from './DraftReviewSection';
