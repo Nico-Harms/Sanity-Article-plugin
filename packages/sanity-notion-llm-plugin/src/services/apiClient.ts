@@ -2,6 +2,8 @@ import type {
   PluginConfig,
   GenerateRequest,
   GenerateResponse,
+  DraftWithMetadata,
+  DraftStats,
 } from '@sanity-notion-llm/shared';
 
 const BACKEND_URL =
@@ -19,6 +21,7 @@ export interface ApiResponse<T = any> {
   sanityDocId?: string;
   schemas?: any[];
   fields?: any[];
+  stats?: any;
 }
 
 export class ApiClient {
@@ -103,22 +106,50 @@ export class ApiClient {
     };
   }
 
+  private static handleResponse<T>(
+    response: ApiResponse<T>,
+    dataKey: keyof ApiResponse
+  ) {
+    return {
+      [dataKey]: response[dataKey] || null,
+      error: response.error || null,
+    };
+  }
+
   static async getDrafts(studioId: string) {
-    return this.makeRequest(`/api/drafts?studioId=${studioId}`);
+    const response = await this.makeRequest<{ drafts: DraftWithMetadata[] }>(
+      `/api/drafts?studioId=${studioId}`
+    );
+    return this.handleResponse(response, 'drafts');
+  }
+
+  static async getDraftStats(studioId: string) {
+    const response = await this.makeRequest<{ stats: DraftStats }>(
+      `/api/drafts/stats?studioId=${studioId}`
+    );
+    return this.handleResponse(response, 'stats');
   }
 
   static async approveDraft(studioId: string, documentId: string) {
-    return this.makeRequest('/api/drafts/approve', {
-      method: 'POST',
-      body: JSON.stringify({ studioId, documentId }),
-    });
+    const response = await this.makeRequest<{ success: boolean }>(
+      '/api/drafts/approve',
+      {
+        method: 'POST',
+        body: JSON.stringify({ studioId, documentId }),
+      }
+    );
+    return this.handleResponse(response, 'success');
   }
 
   static async rejectDraft(studioId: string, documentId: string) {
-    return this.makeRequest('/api/drafts/reject', {
-      method: 'POST',
-      body: JSON.stringify({ studioId, documentId }),
-    });
+    const response = await this.makeRequest<{ success: boolean }>(
+      '/api/drafts/reject',
+      {
+        method: 'POST',
+        body: JSON.stringify({ studioId, documentId }),
+      }
+    );
+    return this.handleResponse(response, 'success');
   }
 
   static async getSchemaTypes(studioId: string) {

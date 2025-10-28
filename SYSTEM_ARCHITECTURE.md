@@ -19,12 +19,14 @@ Sanity-Article-plugin/
 │   └── 🔌 sanity-notion-llm-plugin/        # Sanity Studio Plugin
 │       ├── src/
 │       │   ├── components/                 # UI Components
+│       │   │   ├── GeneralTabContent.tsx   # Dashboard overview tab
+│       │   │   ├── DashboardStats.tsx      # Statistics display
+│       │   │   ├── DraftList.tsx           # Draft management interface
 │       │   │   ├── ApiConfigSection.tsx    # API credentials form
-│       │   │   ├── DraftReviewSection.tsx  # Draft approval interface
-│       │   │   ├── FieldsTabContent.tsx    # Schema mapping UI
+│       │   │   ├── SimpleFieldsTabContent.tsx # Schema mapping UI
 │       │   │   ├── SettingsTabContent.tsx  # Settings tab wrapper
 │       │   │   ├── GenerateTabContent.tsx  # Generation tab wrapper
-│       │   │   ├── FieldMappingCard.tsx    # Individual field mapping
+│       │   │   ├── SimpleFieldCard.tsx     # Individual field mapping
 │       │   │   ├── TabbedInterface.tsx     # Main navigation
 │       │   │   ├── ConnectionStatus.tsx    # Connection status display
 │       │   │   └── index.ts                # Export all components
@@ -33,10 +35,10 @@ Sanity-Article-plugin/
 │       │   │   └── apiClient.ts            # Backend API communication
 │       │   │
 │       │   ├── tool/
-│       │   │   └── NotionLLMTool.tsx       # Main plugin tool component
-│       │   │
-│       │   ├── utils/
-│       │   │   └── schemaUtils.ts          # Sanity schema utilities
+│       │   │   ├── NotionLLMTool.tsx       # Main plugin tool component
+│       │   │   └── hooks/
+│       │   │       ├── usePluginConfig.ts  # Plugin configuration hook
+│       │   │       └── useNotionData.ts    # Notion data fetching hook
 │       │   │
 │       │   ├── plugin.ts                   # Plugin definition
 │       │   └── index.ts                    # Plugin exports
@@ -53,7 +55,8 @@ Sanity-Article-plugin/
 │   │   │   │   │   └── test/route.ts       # Notion connection test
 │   │   │   │   ├── generate/route.ts       # LLM content generation
 │   │   │   │   ├── drafts/
-│   │   │   │   │   ├── route.ts            # Fetch drafts
+│   │   │   │   │   ├── route.ts            # Fetch drafts with metadata
+│   │   │   │   │   ├── stats/route.ts      # Dashboard statistics
 │   │   │   │   │   ├── approve/route.ts    # Approve drafts
 │   │   │   │   │   └── reject/route.ts     # Reject drafts
 │   │   │   │   └── cron/
@@ -70,7 +73,8 @@ Sanity-Article-plugin/
 │   │   │   │   │
 │   │   │   │   ├── database/
 │   │   │   │   │   ├── connection.ts       # MongoDB connection
-│   │   │   │   │   └── models.ts           # Database schemas
+│   │   │   │   │   ├── models.ts           # Database schemas
+│   │   │   │   │   └── draftMetadata.ts    # Draft status tracking service
 │   │   │   │   │
 │   │   │   │   └── cors.ts                 # CORS configuration
 │   │   │   │
@@ -118,6 +122,7 @@ Sanity-Article-plugin/
 │  │                                                             │ │
 │  │ • Encrypted API Keys (Notion, LLM, Sanity)                 │ │
 │  │ • Plugin Configurations (per Studio)                       │ │
+│  │ • Draft Metadata (status tracking)                         │ │
 │  │ • Generation History                                       │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
@@ -127,17 +132,18 @@ Sanity-Article-plugin/
 │                    🎨 Sanity Studio Plugin                      │
 │                                                                 │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
-│  │ Fields      │  │ Settings    │  │ Generate    │             │
-│  │ Mapping     │  │ & Config    │  │ Content     │             │
+│  │ General     │  │ Fields      │  │ Settings    │             │
+│  │ Overview    │  │ Mapping     │  │ & Config    │             │
 │  └─────────────┘  └─────────────┘  └─────────────┘             │
 │                                                                 │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │              📋 Draft Review Tab                            │ │
-│  │                                                             │ │
-│  │ • View Generated Drafts                                    │ │
-│  │ • Approve/Reject Actions                                   │ │
-│  │ • Direct Links to Sanity CMS                               │ │
-│  └─────────────────────────────────────────────────────────────┘ │
+│  ┌─────────────┐  ┌─────────────────────────────────────────┐   │
+│  │ Generate    │  │              📊 General Tab              │   │
+│  │ Content     │  │                                           │   │
+│  └─────────────┘  │ • Dashboard Statistics                   │   │
+│                   │ • Draft Management List                  │   │
+│                   │ • Status Tracking & Actions              │   │
+│                   │ • Filter by Status                       │   │
+│                   └─────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -156,9 +162,11 @@ Sanity-Article-plugin/
 - **Purpose**: Sanity Studio plugin UI and client-side logic
 - **Key Components**:
   - `NotionLLMTool.tsx`: Main plugin entry point with tabbed interface
+  - `GeneralTabContent.tsx`: Dashboard overview with statistics and draft list
+  - `DashboardStats.tsx`: Real-time statistics display
+  - `DraftList.tsx`: Comprehensive draft management interface
   - `ApiConfigSection.tsx`: API credentials configuration form
-  - `DraftReviewSection.tsx`: Draft approval workflow interface
-  - `FieldsTabContent.tsx`: Schema field mapping configuration
+  - `SimpleFieldsTabContent.tsx`: Schema field mapping configuration
   - `apiClient.ts`: HTTP client for backend communication
 
 ### 🔧 **Backend Package** (`apps/backend/`)
@@ -170,6 +178,7 @@ Sanity-Article-plugin/
   - `LLMService.ts`: Mistral API integration for content generation
   - `SanityService.ts`: Sanity CMS document creation and management
   - `EncryptionService.ts`: AES-256-GCM API key encryption
+  - `DraftMetadataService.ts`: Draft status tracking and management
 
 ### 🎨 **Studio Package** (`apps/studio/`)
 
@@ -183,9 +192,9 @@ Sanity-Article-plugin/
 1. **📝 Notion Planning**: Content creators plan articles in Notion database
 2. **⚙️ Configuration**: Studio admins configure API keys and field mappings
 3. **🤖 Generation**: LLM generates content from Notion data
-4. **📰 Draft Creation**: Content saved as drafts in Sanity CMS
-5. **👀 Review**: Editors review drafts in Studio plugin
-6. **✅ Approval**: Approved drafts scheduled for publishing
+4. **📰 Draft Creation**: Content saved as drafts in Sanity CMS with metadata tracking
+5. **👀 Review**: Editors review drafts in General tab with dashboard statistics
+6. **✅ Approval**: Approved drafts tracked in MongoDB with status updates
 7. **📅 Publishing**: Cron job publishes approved content on scheduled dates
 
 ## 🛡️ **Security Features**
@@ -198,7 +207,7 @@ Sanity-Article-plugin/
 ## 📊 **Database Schema**
 
 - **`configs` Collection**: Plugin configurations per Studio
-- **`generations` Collection**: Content generation history and status
+- **`draft_metadata` Collection**: Draft status tracking and management
 - **Encrypted Fields**: `notionClientSecret`, `llmApiKey`, `sanityToken`
 
 This architecture provides a complete content automation pipeline from Notion planning to Sanity publishing with full editorial control and multi-tenant support! 🚀

@@ -1,6 +1,20 @@
 import { NextRequest } from 'next/server';
 import { loadStudioContext } from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
+import { getDraftMetadataService } from '@/lib/database/draftMetadata';
+
+/*===============================================
+=          Reject Draft API Route          =
+===============================================*/
+
+/**
+ * Reject Draft API Route
+ *
+ * Rejects a draft document in Sanity and updates the draft metadata status.
+ *
+ * @param request - The HTTP request containing studioId and documentId
+ * @returns A CORS response with success or error status
+ */
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,8 +37,12 @@ export async function POST(request: NextRequest) {
       return createCorsResponse({ error: message }, status);
     }
 
-    // Reject the document (mark as rejected)
+    // Reject the document in Sanity
     await context.sanity.service.rejectDocument(documentId);
+
+    // Update metadata status
+    const draftMetadataService = await getDraftMetadataService();
+    await draftMetadataService.updateStatus(documentId, 'rejected');
 
     return createCorsResponse({ success: true }, 200);
   } catch (error) {

@@ -23,9 +23,10 @@ A production-ready, multi-tenant Sanity plugin that connects Notion tables with 
 ✅ **Studio**: Dynamic schema detection with LLM-aware field mapping  
 ✅ **Frontend**: Blog displaying Sanity content  
 ✅ **Plugin**: Multi-tenant configuration with modular component architecture  
-✅ **Database**: MongoDB Atlas with encrypted API keys (Notion, LLM, Sanity)  
+✅ **Database**: MongoDB Atlas with encrypted API keys and draft metadata tracking  
 ✅ **LLM Integration**: Generates drafts from Notion content with field-aware prompts  
-✅ **Approval Workflow**: Editors review drafts before scheduled publish  
+✅ **Draft Management**: Complete status tracking system with MongoDB metadata  
+✅ **General Tab**: Dashboard statistics and comprehensive draft list interface  
 ✅ **Schema Detection**: Automatically detects Sanity schema fields and types  
 ✅ **Code Quality**: Comprehensive cleanup with detailed documentation  
 ✅ **Complete**: Full content automation pipeline from Notion → LLM → Sanity
@@ -42,10 +43,11 @@ A production-ready, multi-tenant Sanity plugin that connects Notion tables with 
 
 ### Content Flow
 
-1. **Week Before**: Cron generates drafts for pages scheduled 7 days ahead
-2. **Review Period**: Editors review drafts in Studio, approve or reject
-3. **Publish Date**: Cron publishes approved drafts when date matches
-4. **Notion Sync**: Status updated to "Published" after successful publish
+1. **Generation**: Create drafts from Notion content using LLM
+2. **Review Period**: Editors review drafts in Studio General tab, approve or reject
+3. **Status Tracking**: MongoDB tracks draft status (generated → approved → published)
+4. **Publish Date**: Cron publishes approved drafts when date matches
+5. **Notion Sync**: Status updated to "Published" after successful publish
 
 ### Key Features
 
@@ -57,7 +59,8 @@ A production-ready, multi-tenant Sanity plugin that connects Notion tables with 
 - 🤖 **LLM Integration**: Mistral API for intelligent content generation with field purposes
 - ✨ **Auto-Save**: Field mappings automatically save on changes
 - 🧩 **Modular**: Clean component architecture with comprehensive documentation
-- 📝 **Approval Workflow**: Draft review system with approve/reject actions
+- 📝 **Draft Management**: Complete status tracking with MongoDB metadata
+- 📈 **Dashboard**: Real-time statistics and draft overview in General tab
 - 📚 **Well-Documented**: Comprehensive documentation for all services and components
 
 ## Quick Start
@@ -141,7 +144,8 @@ npm run dev
 
 ### Draft Management
 
-- `GET /api/drafts?studioId={id}` - Fetch draft documents for review
+- `GET /api/drafts?studioId={id}` - Fetch draft documents with metadata for review
+- `GET /api/drafts/stats?studioId={id}` - Get dashboard statistics
 - `POST /api/drafts/approve` - Approve a draft for publishing
 - `POST /api/drafts/reject` - Reject a draft
 
@@ -180,11 +184,12 @@ npm run dev
 
 ### 4. Review and Approve Drafts
 
-1. Go to "Draft Review" tab
-2. View all generated drafts with their scheduled dates
-3. Click "Approve" to mark for publishing on scheduled date
-4. Click "Reject" to remove from publishing queue
-5. Click "Edit in Sanity" to open draft in Sanity Studio
+1. Go to "General" tab (first tab)
+2. View dashboard statistics and draft list
+3. Filter drafts by status using the dropdown
+4. Click "Approve" to mark for publishing on scheduled date
+5. Click "Reject" to remove from publishing queue
+6. View status badges and planned publish dates
 
 ## Database Schema
 
@@ -203,12 +208,17 @@ npm run dev
   - `fieldMappings` (array)
   - `isActive` (boolean)
 
-- **`generations`**: Content generation history
-  - `configId` (ObjectId)
+- **`draft_metadata`**: Draft status tracking
   - `notionPageId` (string)
-  - `scheduledDate` (Date)
-  - `status` (string)
-  - `sanityDocumentId` (string)
+  - `sanityDraftId` (string)
+  - `sanityDocumentType` (string)
+  - `studioId` (string)
+  - `status` (string: generated|approved|published|rejected)
+  - `plannedPublishDate` (string)
+  - `generatedAt` (Date)
+  - `approvedAt` (Date, optional)
+  - `publishedAt` (Date, optional)
+  - `rejectedAt` (Date, optional)
 
 ## Tech Stack
 
@@ -244,11 +254,13 @@ npm run dev
 
 ### Plugin Components (`packages/sanity-notion-llm-plugin/src/components/`)
 
+- **`GeneralTabContent`**: Dashboard statistics and draft management overview
+- **`DashboardStats`**: Real-time statistics display with status counts
+- **`DraftList`**: Comprehensive draft list with filtering and actions
 - **`FieldsTabContent`**: Dynamic schema selection and field configuration
 - **`SettingsTabContent`**: API configuration and connection testing
 - **`GenerateTabContent`**: Content generation interface
-- **`DraftReviewSection`**: Draft review and approval workflow
-- **`DetectedFieldCard`**: Individual field toggle and purpose input
+- **`SimpleFieldCard`**: Individual field toggle and purpose input
 - **`ApiConfigSection`**: API credentials input form
 - **`TabbedInterface`**: Main plugin navigation
 
@@ -284,6 +296,12 @@ npm run dev
 ## Development Commands
 
 ```bash
+# Watch mode for all packages and apps
+npm run watch:all
+
+# Plugin development only
+npm run dev:plugin
+
 # Backend development
 cd apps/backend && npm run dev
 
@@ -312,7 +330,8 @@ cd packages/shared && npm run dev
 - [ ] Field mappings auto-save correctly
 - [ ] LLM content generation works (with valid API key)
 - [ ] Sanity document creation works after LLM generation
-- [ ] Draft review tab shows generated drafts
+- [ ] General tab shows dashboard statistics
+- [ ] Draft list displays all drafts with proper status
 - [ ] Approve/reject actions work correctly
 - [ ] Cron job generates drafts for future dates
 - [ ] Cron job publishes approved drafts on scheduled date
@@ -336,6 +355,7 @@ curl -X POST "http://localhost:3001/api/generate" \
 
 # Test draft management
 curl "http://localhost:3001/api/drafts?studioId=test-studio"
+curl "http://localhost:3001/api/drafts/stats?studioId=test-studio"
 curl -X POST "http://localhost:3001/api/drafts/approve" \
      -H "Content-Type: application/json" \
      -d '{"studioId":"test-studio","documentId":"draft-id"}'
@@ -347,7 +367,16 @@ curl -H "Authorization: Bearer your-cron-secret" \
 
 ## Recent Updates
 
-### Code Cleanup & Documentation (Latest)
+### Draft Management System (Latest)
+
+- ✅ **General Tab**: New overview tab with dashboard statistics and draft list
+- ✅ **Status Tracking**: MongoDB metadata collection for draft status management
+- ✅ **Dashboard Stats**: Real-time statistics display with status counts
+- ✅ **Draft List**: Comprehensive draft management with filtering and actions
+- ✅ **UI Improvements**: Better spacing and visual hierarchy using Sanity UI
+- ✅ **Watch Mode**: Development workflow with automatic rebuilding
+
+### Code Cleanup & Documentation
 
 - ✅ **Removed unused imports** and dead code throughout the codebase
 - ✅ **Cleaned up debug logs** while keeping essential error logging

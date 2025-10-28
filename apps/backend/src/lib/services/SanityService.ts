@@ -77,7 +77,7 @@ export class SanityService {
   // Query draft documents
   async queryDrafts(options: { type?: string }) {
     const { type } = options;
-    const query = `*[_type == "${type || 'article'}" && _id in path("drafts.**") && _approved == false && _rejected == false]`;
+    const query = `*[_type == "${type || 'article'}" && _id in path("drafts.**")]`;
     return this.client.fetch(query);
   }
 

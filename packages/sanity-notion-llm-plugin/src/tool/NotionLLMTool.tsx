@@ -5,7 +5,7 @@ import {
   SimpleFieldsTabContent,
   SettingsTabContent,
   GenerateTabContent,
-  DraftReviewSection,
+  GeneralTabContent,
 } from '../components';
 import { usePluginConfig } from './hooks/usePluginConfig';
 import type { PluginConfig, DetectedField } from '@sanity-notion-llm/shared';
@@ -106,15 +106,13 @@ export function NotionLLMTool() {
     />
   );
 
+  const generalTabContent = <GeneralTabContent studioId={projectId} />;
+
   const tabs = [
+    { id: 'general', label: 'General', content: generalTabContent },
     { id: 'fields', label: 'Fields', content: fieldsTabContent },
     { id: 'settings', label: 'Settings', content: settingsTabContent },
     { id: 'generate', label: 'Generate', content: generateTabContent },
-    {
-      id: 'review',
-      label: 'Draft Review',
-      content: <DraftReviewSection studioId={projectId} />,
-    },
   ];
 
   return (
@@ -127,7 +125,7 @@ export function NotionLLMTool() {
           {state.error && <Text size={1}>{state.error}</Text>}
         </Box>
 
-        <TabbedInterface tabs={tabs} defaultTab="fields" />
+        <TabbedInterface tabs={tabs} defaultTab="general" />
       </Stack>
     </Card>
   );

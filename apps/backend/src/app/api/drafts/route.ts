@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { loadStudioContext } from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
+import { getDraftMetadataService } from '@/lib/database/draftMetadata';
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,12 +21,37 @@ export async function GET(request: NextRequest) {
       return createCorsResponse({ error: message }, status);
     }
 
-    // Query drafts
-    const drafts = await context.sanity.service.queryDrafts({
+    // Query drafts with metadata
+    const draftMetadataService = await getDraftMetadataService();
+    const metadataList = await draftMetadataService.findByStudioId(studioId);
+    // Get Sanity drafts
+    const sanityDrafts = await context.sanity.service.queryDrafts({
       type: context.config.selectedSchema || 'article',
     });
 
-    return createCorsResponse({ success: true, drafts }, 200);
+    // Combine Sanity drafts with metadata
+    const draftsWithMetadata = sanityDrafts.map((draft: any) => {
+      const metadata = metadataList.find((m) => m.sanityDraftId === draft._id);
+      return {
+        _id: draft._id,
+        _type: draft._type,
+        title: draft.title || 'Untitled',
+        status: metadata?.status || 'generated',
+        plannedPublishDate: metadata?.plannedPublishDate || '',
+        generatedAt:
+          metadata?.generatedAt?.toISOString() || new Date().toISOString(),
+        approvedAt: metadata?.approvedAt?.toISOString(),
+        publishedAt: metadata?.publishedAt?.toISOString(),
+        notionPageId: metadata?.notionPageId || '',
+        sanityDraftId: draft._id,
+        studioId: studioId,
+      };
+    });
+
+    return createCorsResponse(
+      { success: true, drafts: draftsWithMetadata },
+      200
+    );
   } catch (error) {
     console.error('[drafts-api] Failed to fetch drafts:', error);
     return createCorsResponse(

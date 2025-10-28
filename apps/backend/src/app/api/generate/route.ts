@@ -10,6 +10,29 @@ import {
   extractSubjectFromProperties,
 } from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
+import { getDraftMetadataService } from '@/lib/database/draftMetadata';
+
+/*===============================================
+=          Helper function to extract planned publish date from Notion page          =
+===============================================*/
+
+/**
+TODO: Test and add validation for the planned publish date, and clean up the code 
+ */
+function extractPlannedDateFromNotion(notionPageData: NotionPageData): string {
+  // Look for common date field names in Notion properties
+  const dateFields = ['Publish Date', 'Planned Date', 'Date', 'Scheduled Date'];
+
+  for (const fieldName of dateFields) {
+    const field = notionPageData.properties?.[fieldName];
+    if (field && field.type === 'date' && field.date) {
+      return field.date.start;
+    }
+  }
+
+  // Default to today if no date found
+  return new Date().toISOString().split('T')[0];
+}
 import type {
   GenerateRequest,
   GenerateResponse,
@@ -129,6 +152,26 @@ export async function POST(request: NextRequest) {
         );
 
         sanityDocId = sanityDoc._id;
+
+        // Create draft metadata for tracking
+        try {
+          const draftMetadataService = await getDraftMetadataService();
+          await draftMetadataService.createDraftMetadata({
+            notionPageId,
+            sanityDraftId: sanityDoc._id,
+            sanityDocumentType: schemaType,
+            studioId,
+            status: 'generated',
+            plannedPublishDate: extractPlannedDateFromNotion(notionPageData),
+            generatedAt: new Date(),
+          });
+        } catch (metadataError) {
+          console.error(
+            '[generate-api] Failed to create draft metadata:',
+            metadataError
+          );
+          // Continue without failing the entire request
+        }
       } catch (sanityError) {
         console.error(
           '[generate-api] Failed to create Sanity draft:',

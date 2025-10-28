@@ -7,4 +7,6 @@ export { SimpleFieldsTabContent } from './SimpleFieldsTabContent';
 export { SimpleFieldCard } from './SimpleFieldCard';
 export { SettingsTabContent } from './SettingsTabContent';
 export { GenerateTabContent } from './GenerateTabContent';
-export { DraftReviewSection } from './DraftReviewSection';
+export { GeneralTabContent } from './GeneralTabContent';
+export { DashboardStats } from './DashboardStats';
+export { DraftList } from './DraftList';
