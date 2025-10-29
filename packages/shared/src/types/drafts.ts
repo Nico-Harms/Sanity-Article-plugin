@@ -1,5 +1,4 @@
 export type DraftStatus =
-  | 'generated'
   | 'pending_review'
   | 'approved'
   | 'scheduled'

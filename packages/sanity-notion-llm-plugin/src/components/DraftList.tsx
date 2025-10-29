@@ -10,7 +10,8 @@ import {
 } from '@sanity/ui';
 import { useEffect, useState } from 'react';
 import { ApiClient } from '../services/apiClient';
-import type { DraftWithMetadata, DraftStatus } from '@sanity-notion-llm/shared';
+import { DraftModal } from './DraftModal';
+import type { DraftWithMetadata } from '@sanity-notion-llm/shared';
 
 interface DraftListProps {
   studioId: string;
@@ -18,7 +19,6 @@ interface DraftListProps {
 
 const STATUS_OPTIONS = [
   { value: 'all', label: 'All Statuses' },
-  { value: 'generated', label: 'Generated' },
   { value: 'pending_review', label: 'Pending Review' },
   { value: 'approved', label: 'Approved' },
   { value: 'scheduled', label: 'Scheduled' },
@@ -27,7 +27,6 @@ const STATUS_OPTIONS = [
 ];
 
 const STATUS_CONFIG = {
-  generated: { label: 'Generated', tone: 'default' as const },
   pending_review: { label: 'Pending Review', tone: 'caution' as const },
   approved: { label: 'Approved', tone: 'positive' as const },
   scheduled: { label: 'Scheduled', tone: 'primary' as const },
@@ -41,6 +40,10 @@ export function DraftList({ studioId }: DraftListProps) {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [selectedDraft, setSelectedDraft] = useState<DraftWithMetadata | null>(
+    null
+  );
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchDrafts = async () => {
@@ -86,6 +89,28 @@ export function DraftList({ studioId }: DraftListProps) {
       console.error(`[DraftList] Failed to ${action} draft:`, err);
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const handleViewDraft = (draft: DraftWithMetadata) => {
+    setSelectedDraft(draft);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedDraft(null);
+  };
+
+  const handleModalApprove = async () => {
+    if (selectedDraft) {
+      await handleAction('approve', selectedDraft._id);
+    }
+  };
+
+  const handleModalReject = async () => {
+    if (selectedDraft) {
+      await handleAction('reject', selectedDraft._id);
     }
   };
 
@@ -165,8 +190,16 @@ export function DraftList({ studioId }: DraftListProps) {
                   </Flex>
 
                   <Flex gap={2}>
-                    {(draft.status === 'generated' ||
-                      draft.status === 'pending_review') && (
+                    {/* View button for all drafts */}
+                    <Button
+                      text="View"
+                      tone="primary"
+                      mode="ghost"
+                      size={1}
+                      onClick={() => handleViewDraft(draft)}
+                    />
+
+                    {draft.status === 'pending_review' && (
                       <>
                         <Button
                           text={
@@ -237,6 +270,18 @@ export function DraftList({ studioId }: DraftListProps) {
           </Stack>
         )}
       </Stack>
+
+      {/* Draft Modal */}
+      {selectedDraft && (
+        <DraftModal
+          draft={selectedDraft}
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          onApprove={handleModalApprove}
+          onReject={handleModalReject}
+          studioId={studioId}
+        />
+      )}
     </Card>
   );
 }

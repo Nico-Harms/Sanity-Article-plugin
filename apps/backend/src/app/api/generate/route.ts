@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
             sanityDraftId: sanityDoc._id,
             sanityDocumentType: schemaType,
             studioId,
-            status: 'generated',
+            status: 'pending_review',
             plannedPublishDate: extractPlannedDateFromNotion(notionPageData),
             generatedAt: new Date(),
           });

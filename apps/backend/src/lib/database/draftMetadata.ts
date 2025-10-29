@@ -121,8 +121,7 @@ export class DraftMetadataService {
 
     return {
       total: results.reduce((sum, r) => sum + r.count, 0),
-      pending:
-        (statusCounts.generated || 0) + (statusCounts.pending_review || 0),
+      pending: statusCounts.pending_review || 0,
       approved: (statusCounts.approved || 0) + (statusCounts.scheduled || 0),
       published: statusCounts.published || 0,
       rejected: statusCounts.rejected || 0,

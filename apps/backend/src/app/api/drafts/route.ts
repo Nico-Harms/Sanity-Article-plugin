@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         _id: draft._id,
         _type: draft._type,
         title: draft.title || 'Untitled',
-        status: metadata?.status || 'generated',
+        status: metadata?.status || 'pending_review',
         plannedPublishDate: metadata?.plannedPublishDate || '',
         generatedAt:
           metadata?.generatedAt?.toISOString() || new Date().toISOString(),

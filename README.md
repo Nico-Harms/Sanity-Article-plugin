@@ -45,7 +45,7 @@ A production-ready, multi-tenant Sanity plugin that connects Notion tables with 
 
 1. **Generation**: Create drafts from Notion content using LLM
 2. **Review Period**: Editors review drafts in Studio General tab, approve or reject
-3. **Status Tracking**: MongoDB tracks draft status (generated → approved → published)
+3. **Status Tracking**: MongoDB tracks draft status (pending_review → approved → published)
 4. **Publish Date**: Cron publishes approved drafts when date matches
 5. **Notion Sync**: Status updated to "Published" after successful publish
 
@@ -213,7 +213,7 @@ npm run dev
   - `sanityDraftId` (string)
   - `sanityDocumentType` (string)
   - `studioId` (string)
-  - `status` (string: generated|approved|published|rejected)
+  - `status` (string: pending_review|approved|published|rejected)
   - `plannedPublishDate` (string)
   - `generatedAt` (Date)
   - `approvedAt` (Date, optional)
