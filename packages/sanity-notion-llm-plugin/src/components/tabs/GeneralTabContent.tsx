@@ -1,6 +1,7 @@
+import React from 'react';
 import { Stack, Text } from '@sanity/ui';
-import { DashboardStats } from './DashboardStats';
-import { DraftList } from './DraftList';
+import { DashboardStats } from '../drafts/DashboardStats';
+import { DraftList } from '../drafts/DraftList';
 
 interface GeneralTabContentProps {
   studioId: string;

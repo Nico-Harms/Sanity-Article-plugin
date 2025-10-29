@@ -1,5 +1,5 @@
 import { type PluginConfig } from '@sanity-notion-llm/shared';
-import { GenerationSection } from './GenerationSection';
+import { GenerationSection } from '../generation/GenerationSection';
 
 interface GenerateTabContentProps {
   studioId: string;

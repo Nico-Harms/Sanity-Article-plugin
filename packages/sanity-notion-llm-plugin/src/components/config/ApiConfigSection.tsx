@@ -1,6 +1,6 @@
 import { Card, Text, TextInput, Box, Stack, Button, Select } from '@sanity/ui';
 import type { PluginConfig } from '@sanity-notion-llm/shared';
-import type { ConfigFieldKey } from '../tool/types';
+import type { ConfigFieldKey } from '../../tool/types';
 
 interface ApiConfigSectionProps {
   config: PluginConfig;

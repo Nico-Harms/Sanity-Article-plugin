@@ -1,6 +1,6 @@
 import { Card, Text, TextArea, Box, Stack } from '@sanity/ui';
 import type { PluginConfig } from '@sanity-notion-llm/shared';
-import type { ConfigFieldKey } from '../tool/types';
+import type { ConfigFieldKey } from '../../tool/types';
 
 interface InstructionsSectionProps {
   config: PluginConfig;

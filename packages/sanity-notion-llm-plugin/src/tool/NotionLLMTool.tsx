@@ -1,12 +1,10 @@
 import { Card, Text, Stack, Box } from '@sanity/ui';
 import { useProjectId } from 'sanity';
-import {
-  TabbedInterface,
-  SimpleFieldsTabContent,
-  SettingsTabContent,
-  GenerateTabContent,
-  GeneralTabContent,
-} from '../components';
+import { TabbedInterface } from '../components/layout/TabbedInterface';
+import { SimpleFieldsTabContent } from '../components/tabs/SimpleFieldsTabContent';
+import { SettingsTabContent } from '../components/tabs/SettingsTabContent';
+import { GenerateTabContent } from '../components/tabs/GenerateTabContent';
+import { GeneralTabContent } from '../components/tabs/GeneralTabContent';
 import { usePluginConfig } from './hooks/usePluginConfig';
 import type { PluginConfig, DetectedField } from '@sanity-notion-llm/shared';
 import { useNotionData } from './hooks/useNotionData';

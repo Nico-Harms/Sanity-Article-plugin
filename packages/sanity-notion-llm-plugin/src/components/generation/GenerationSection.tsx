@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Card, Text, Box, Stack, Button, Select, Flex } from '@sanity/ui';
-import { ApiClient } from '../services/apiClient';
+import { ApiClient } from '../../services/apiClient';
 import type { SanityDraftData } from '@sanity-notion-llm/shared';
 import { extractPageDisplayText } from '@sanity-notion-llm/shared';
 

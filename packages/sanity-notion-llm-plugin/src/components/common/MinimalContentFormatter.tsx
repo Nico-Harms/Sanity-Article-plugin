@@ -1,3 +1,4 @@
+import React from 'react';
 import { PortableText } from '@portabletext/react';
 import { Card, Text, Stack, Box } from '@sanity/ui';
 import { format } from 'date-fns';

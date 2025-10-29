@@ -1,3 +1,4 @@
+import React from 'react';
 import {
   Card,
   Text,
@@ -9,7 +10,7 @@ import {
   Badge,
 } from '@sanity/ui';
 import { useEffect, useState } from 'react';
-import { ApiClient } from '../services/apiClient';
+import { ApiClient } from '../../services/apiClient';
 import { DraftModal } from './DraftModal';
 import type { DraftWithMetadata } from '@sanity-notion-llm/shared';
 

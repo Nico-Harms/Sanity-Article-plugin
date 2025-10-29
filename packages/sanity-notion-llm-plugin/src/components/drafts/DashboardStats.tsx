@@ -1,6 +1,7 @@
+import React from 'react';
 import { Card, Text, Box, Grid, Badge, Stack } from '@sanity/ui';
 import { useEffect, useState } from 'react';
-import { ApiClient } from '../services/apiClient';
+import { ApiClient } from '../../services/apiClient';
 import type { DraftStats } from '@sanity-notion-llm/shared';
 
 interface DashboardStatsProps {

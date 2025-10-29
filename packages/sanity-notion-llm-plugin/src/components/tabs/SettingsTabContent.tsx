@@ -1,9 +1,9 @@
 import { Card, Text, Stack, Button, Box } from '@sanity/ui';
 import { type PluginConfig } from '@sanity-notion-llm/shared';
-import { ApiConfigSection } from './ApiConfigSection';
-import { ConnectionStatus } from './ConnectionStatus';
-import { InstructionsSection } from './InstructionsSection';
-import type { ConfigFieldKey } from '../tool/types';
+import { ApiConfigSection } from '../config/ApiConfigSection';
+import { ConnectionStatus } from '../config/ConnectionStatus';
+import { InstructionsSection } from '../config/InstructionsSection';
+import type { ConfigFieldKey } from '../../tool/types';
 
 interface SettingsTabContentProps {
   config: PluginConfig;

@@ -1,9 +1,10 @@
+import React from 'react';
 import { Card, Text, Dialog, Stack, Box, Spinner, Button } from '@sanity/ui';
 import { useClient } from 'sanity';
 import { useState, useEffect } from 'react';
 import type { DraftWithMetadata } from '@sanity-notion-llm/shared';
 import { DraftMetadataCard } from './DraftMetadataCard';
-import { MinimalContentFormatter } from './MinimalContentFormatter';
+import { MinimalContentFormatter } from '../common/MinimalContentFormatter';
 
 interface DraftModalProps {
   draft: DraftWithMetadata;
