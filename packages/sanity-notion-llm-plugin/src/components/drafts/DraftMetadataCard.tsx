@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, Text, Stack, Badge, Flex } from '@sanity/ui';
 import type { DraftWithMetadata } from '@sanity-notion-llm/shared';
+import { formatMonthAndDate } from '../../utils/dateUtils';
 
 // Status configuration with labels, tones, and messages
 const STATUS_CONFIG = {
@@ -81,7 +82,7 @@ export function DraftMetadataCard({ draft }: DraftMetadataCardProps) {
           </Text>
           {draft.approvedAt && (
             <Text size={1} style={{ color: 'var(--sanity-color-positive)' }}>
-              Approved: {new Date(draft.approvedAt).toLocaleDateString()}
+              Approved: {formatMonthAndDate(draft.approvedAt)}
             </Text>
           )}
           {draft.publishedAt && (

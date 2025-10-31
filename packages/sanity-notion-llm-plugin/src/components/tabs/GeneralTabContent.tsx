@@ -1,20 +1,32 @@
-import React from 'react';
-import { Stack, Text } from '@sanity/ui';
+import React, { useState } from 'react';
+import { Stack, Text, Flex } from '@sanity/ui';
 import { DashboardStats } from '../drafts/DashboardStats';
 import { DraftList } from '../drafts/DraftList';
+import { WeekNavigator } from '../drafts/WeekNavigator';
+import { getCurrentWeekStart } from '../../utils/dateUtils';
 
 interface GeneralTabContentProps {
   studioId: string;
 }
 
 export function GeneralTabContent({ studioId }: GeneralTabContentProps) {
+  const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(
+    getCurrentWeekStart()
+  );
+
   return (
     <Stack space={6}>
-      <Text size={3} weight="bold">
-        Overview
-      </Text>
+      <Flex justify="space-between" align="center">
+        <Text size={3} weight="bold">
+          Overview
+        </Text>
+        <WeekNavigator
+          selectedWeekStart={selectedWeekStart}
+          onWeekChange={setSelectedWeekStart}
+        />
+      </Flex>
       <DashboardStats studioId={studioId} />
-      <DraftList studioId={studioId} />
+      <DraftList studioId={studioId} selectedWeekStart={selectedWeekStart} />
     </Stack>
   );
 }
