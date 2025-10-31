@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Text, Stack, Badge, Flex } from '@sanity/ui';
+import { Card, Text, Stack, Badge, Flex, Box } from '@sanity/ui';
 import type { DraftWithMetadata } from '@sanity-notion-llm/shared';
 import { formatMonthAndDate } from '../../utils/dateUtils';
 
@@ -46,56 +46,92 @@ export function DraftMetadataCard({ draft }: DraftMetadataCardProps) {
     STATUS_CONFIG[draft.status as keyof typeof STATUS_CONFIG];
 
   return (
-    <Card padding={3} border radius={1}>
-      <Stack space={3}>
-        <Text size={2} weight="medium">
-          Title: {draft.title}
-        </Text>
+    <Card padding={4} border radius={2}>
+      <Stack space={4}>
+        {/* Title */}
+        <Box>
+          <Text
+            size={1}
+            weight="semibold"
+            muted
+            style={{ marginBottom: '8px' }}
+          >
+            Title
+          </Text>
+          <Text size={2} weight="semibold">
+            {draft.title}
+          </Text>
+        </Box>
 
         {/* Status Display */}
         <Stack space={2}>
-          <Flex gap={2} align="center">
-            <Text size={1} weight="medium">
-              Status:
+          <Box>
+            <Text
+              size={1}
+              weight="semibold"
+              muted
+              style={{ marginBottom: '8px' }}
+            >
+              Status
             </Text>
-            {statusConfig ? (
-              <Badge tone={statusConfig.tone} fontSize={1}>
-                {statusConfig.icon} {statusConfig.label}
-              </Badge>
-            ) : (
-              <Badge tone="default" fontSize={1}>
-                {draft.status}
-              </Badge>
-            )}
-          </Flex>
+            <Flex gap={2} align="center">
+              {statusConfig ? (
+                <Badge tone={statusConfig.tone} fontSize={1}>
+                  {statusConfig.icon} {statusConfig.label}
+                </Badge>
+              ) : (
+                <Badge tone="default" fontSize={1}>
+                  {draft.status}
+                </Badge>
+              )}
+            </Flex>
+          </Box>
           {statusConfig && (
-            <Text size={1} muted>
+            <Text size={1} muted style={{ lineHeight: 1.5 }}>
               {statusConfig.message}
             </Text>
           )}
         </Stack>
 
         {/* Timestamps */}
-        <Stack space={1}>
-          <Text size={1}>
-            Generated: {new Date(draft.generatedAt).toLocaleDateString()}
-          </Text>
-          {draft.approvedAt && (
-            <Text size={1} style={{ color: 'var(--sanity-color-positive)' }}>
-              Approved: {formatMonthAndDate(draft.approvedAt)}
+        <Stack space={2}>
+          <Box>
+            <Text
+              size={1}
+              weight="semibold"
+              muted
+              style={{ marginBottom: '8px' }}
+            >
+              Timeline
             </Text>
-          )}
-          {draft.publishedAt && (
-            <Text size={1} style={{ color: 'var(--sanity-color-positive)' }}>
-              Published: {new Date(draft.publishedAt).toLocaleDateString()}
-            </Text>
-          )}
-          {draft.plannedPublishDate && (
-            <Text size={1}>
-              Planned Publish:{' '}
-              {new Date(draft.plannedPublishDate).toLocaleDateString()}
-            </Text>
-          )}
+            <Stack space={2}>
+              <Text size={1}>
+                Generated: {new Date(draft.generatedAt).toLocaleDateString()}
+              </Text>
+              {draft.status === 'approved' && draft.plannedPublishDate && (
+                <Text
+                  size={1}
+                  style={{ color: 'var(--sanity-color-positive)' }}
+                >
+                  Publish Date: {formatMonthAndDate(draft.plannedPublishDate)}
+                </Text>
+              )}
+              {draft.status !== 'approved' && draft.plannedPublishDate && (
+                <Text size={1} muted>
+                  Planned Publish:{' '}
+                  {new Date(draft.plannedPublishDate).toLocaleDateString()}
+                </Text>
+              )}
+              {draft.publishedAt && (
+                <Text
+                  size={1}
+                  style={{ color: 'var(--sanity-color-positive)' }}
+                >
+                  Published: {new Date(draft.publishedAt).toLocaleDateString()}
+                </Text>
+              )}
+            </Stack>
+          </Box>
         </Stack>
       </Stack>
     </Card>

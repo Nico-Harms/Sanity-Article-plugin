@@ -189,13 +189,13 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
 
   const handleModalApprove = async () => {
     if (selectedDraft) {
-      await handleAction('approve', selectedDraft._id);
+      await handleAction('approve', selectedDraft.sanityDraftId);
     }
   };
 
   const handleModalReject = async () => {
     if (selectedDraft) {
-      await handleAction('reject', selectedDraft._id);
+      await handleAction('reject', selectedDraft.sanityDraftId);
     }
   };
 
@@ -225,22 +225,21 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
                 {draft.title}
               </Text>
               <Stack space={2}>
-                <Text size={1} muted>
-                  {draft._type} • Generated{' '}
-                  {new Date(draft.generatedAt).toLocaleDateString()}
-                </Text>
                 {draft.plannedPublishDate && (
-                  <Text size={1} muted>
-                    Planned:{' '}
-                    {new Date(draft.plannedPublishDate).toLocaleDateString()}
-                  </Text>
-                )}
-                {draft.status === 'approved' && draft.approvedAt && (
                   <Text
                     size={1}
-                    style={{ color: 'var(--sanity-color-positive)' }}
+                    style={
+                      draft.status === 'approved'
+                        ? { color: 'var(--sanity-color-positive)' }
+                        : { opacity: 0.7 }
+                    }
                   >
-                    Approved: {formatMonthAndDate(draft.approvedAt)}
+                    Scheduled to:{' '}
+                    {draft.status === 'approved'
+                      ? formatMonthAndDate(draft.plannedPublishDate)
+                      : `Planned: ${new Date(
+                          draft.plannedPublishDate
+                        ).toLocaleDateString()}`}
                   </Text>
                 )}
               </Stack>

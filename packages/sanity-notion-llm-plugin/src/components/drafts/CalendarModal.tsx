@@ -57,7 +57,7 @@ export function CalendarModal({
   };
 
   return (
-    <Card padding={4} radius={2} style={{ width: '320px' }}>
+    <Card padding={4} radius={2} style={{ width: 'fit-content ' }}>
       <Stack space={4}>
         {/* Month Navigation */}
         <Flex justify="space-between" align="center">

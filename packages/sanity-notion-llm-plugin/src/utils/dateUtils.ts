@@ -101,7 +101,8 @@ export function isDateInWeekRange(date: Date, start: Date, end: Date): boolean {
  * Checks if a date is in the future
  */
 export function isFutureDate(date: Date | string): boolean {
-  const dateToCheck = typeof date === 'string' ? new Date(date) : date;
+  // Always create a new Date object to avoid mutating the input
+  const dateToCheck = new Date(date);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   dateToCheck.setHours(0, 0, 0, 0);
@@ -157,9 +158,10 @@ export function formatWeekRange(weekStart: Date): string {
 
   // If same month, don't repeat month name
   if (startMonth === endMonth) {
-    return `${startDay}, ${startMonth} ${startDate} - ${endDay}, ${endMonth} ${endDate}, ${endYear}`;
+    return `${startDay}, ${startMonth} ${startDate} - ${endDay}, ${endDate}, ${endYear}`;
   }
 
+  // Different months, include both month names
   return `${startDay}, ${startMonth} ${startDate} - ${endDay}, ${endMonth} ${endDate}, ${endYear}`;
 }
 

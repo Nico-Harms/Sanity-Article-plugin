@@ -1,5 +1,14 @@
 import React from 'react';
-import { Card, Text, Dialog, Stack, Box, Spinner, Button } from '@sanity/ui';
+import {
+  Card,
+  Text,
+  Dialog,
+  Stack,
+  Box,
+  Spinner,
+  Button,
+  Flex,
+} from '@sanity/ui';
 import { useClient } from 'sanity';
 import { useState, useEffect } from 'react';
 import type { DraftWithMetadata } from '@sanity-notion-llm/shared';
@@ -65,63 +74,77 @@ export function DraftModal({
 
   return (
     <Dialog id="draft-modal" onClose={onClose} width={1}>
-      <Card padding={5} style={{ width: '80%', margin: '0 auto' }}>
-        <Stack space={4}>
-          <Text size={3} weight="bold">
-            Draft Review
-          </Text>
+      <Card
+        padding={[4, 5, 6]}
+        style={{ width: '80%', maxWidth: '900px', margin: '0 auto' }}
+      >
+        <Stack space={5}>
+          {/* Header */}
+          <Box>
+            <Text size={3} weight="bold">
+              Draft Review
+            </Text>
+          </Box>
 
           {/* Draft Metadata */}
           <DraftMetadataCard draft={draft} />
 
           {/* Document Content */}
-          <Card padding={3} border radius={1}>
-            <Stack space={2}>
-              <Text size={2} weight="medium">
-                Content
-              </Text>
+          <Card padding={4} border radius={2}>
+            <Stack space={3}>
+              <Box>
+                <Text
+                  size={1}
+                  weight="semibold"
+                  muted
+                  style={{ marginBottom: '8px' }}
+                >
+                  Content
+                </Text>
+              </Box>
 
               {loading && (
-                <Box padding={4} style={{ textAlign: 'center' }}>
+                <Box padding={5} style={{ textAlign: 'center' }}>
                   <Spinner />
-                  <Text size={1} muted>
+                  <Text size={1} muted style={{ marginTop: '12px' }}>
                     Loading content...
                   </Text>
                 </Box>
               )}
 
               {error && (
-                <Card padding={3} border radius={1}>
+                <Card padding={3} border radius={2} tone="critical">
                   <Text size={1}>Error: {error}</Text>
                 </Card>
               )}
 
               {content && (
-                <MinimalContentFormatter
-                  content={content}
-                  documentType={draft._type}
-                />
+                <Box style={{ marginTop: '4px' }}>
+                  <MinimalContentFormatter
+                    content={content}
+                    documentType={draft._type}
+                  />
+                </Box>
               )}
             </Stack>
           </Card>
 
           {/* Action Buttons */}
-          <Stack space={2}>
+          <Flex gap={2} justify="flex-end" style={{ marginTop: '8px' }}>
             {draft.status === 'pending_review' && (
-              <Stack space={2}>
+              <>
                 <Button tone="positive" onClick={handleApprove}>
                   Approve
                 </Button>
                 <Button tone="critical" onClick={handleReject}>
                   Reject
                 </Button>
-              </Stack>
+              </>
             )}
-
             <Button mode="ghost" onClick={onClose}>
               Close
             </Button>
-          </Stack>
+          </Flex>
         </Stack>
       </Card>
     </Dialog>

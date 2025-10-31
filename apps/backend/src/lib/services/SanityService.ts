@@ -119,8 +119,8 @@ export class SanityService {
       _id: publishedId,
     };
 
-    // Create the published document
-    const result = await this.client.create(publishedDoc);
+    // Create or replace the published document (handles case where published version already exists)
+    const result = await this.client.createOrReplace(publishedDoc);
 
     // Delete the draft
     await this.client.delete(documentId);

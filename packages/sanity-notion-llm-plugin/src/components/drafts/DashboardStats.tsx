@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Text, Box, Grid, Badge, Stack } from '@sanity/ui';
+import { Card, Text, Box, Grid, Stack } from '@sanity/ui';
 import { useEffect, useState } from 'react';
 import { ApiClient } from '../../services/apiClient';
 import type { DraftStats } from '@sanity-notion-llm/shared';
@@ -8,12 +8,18 @@ interface DashboardStatsProps {
   studioId: string;
 }
 
-const STAT_ITEMS = [
-  { label: 'Total Drafts', key: 'total', tone: 'default' as const },
-  { label: 'Pending Review', key: 'pending', tone: 'caution' as const },
-  { label: 'Approved', key: 'approved', tone: 'positive' as const },
-  { label: 'Published', key: 'published', tone: 'positive' as const },
-  { label: 'Rejected', key: 'rejected', tone: 'critical' as const },
+interface StatItem {
+  label: string;
+  key: keyof DraftStats;
+  tone: 'default' | 'caution' | 'positive' | 'critical';
+}
+
+const STAT_ITEMS: StatItem[] = [
+  { label: 'Total Drafts', key: 'total', tone: 'default' },
+  { label: 'Pending Review', key: 'pending', tone: 'caution' },
+  { label: 'Approved', key: 'approved', tone: 'positive' },
+  { label: 'Published', key: 'published', tone: 'positive' },
+  { label: 'Rejected', key: 'rejected', tone: 'critical' },
 ];
 
 export function DashboardStats({ studioId }: DashboardStatsProps) {
@@ -55,49 +61,82 @@ export function DashboardStats({ studioId }: DashboardStatsProps) {
 
   if (loading) {
     return (
-      <Card padding={5} border radius={2}>
-        <Text>Loading statistics...</Text>
-      </Card>
+      <Box padding={3}>
+        <Text size={0} muted>
+          Loading...
+        </Text>
+      </Box>
     );
   }
 
   if (error) {
     return (
-      <Card padding={5} border radius={2} tone="critical">
-        <Text>{error}</Text>
+      <Card padding={3} radius={2} tone="critical" border>
+        <Text size={0}>{error}</Text>
       </Card>
     );
   }
 
+  const total = stats.total || 1; // Prevent division by zero
+
   return (
-    <Card padding={5} border radius={2} shadow={1}>
-      <Stack>
-        <Text size={2} weight="semibold">
-          Content Overview
-        </Text>
-        <Grid columns={[1, 2, 5]} gap={4}>
-          {STAT_ITEMS.map(({ label, key, tone }) => {
-            const value = stats[key as keyof DraftStats];
-            return (
-              <Card key={label} padding={4} border tone={tone} radius={2}>
-                <Stack space={4}>
-                  <Text size={1} weight="medium" muted>
+    <Box>
+      {/* Stats Grid */}
+      <Grid columns={[1, 2, 5]} gap={3}>
+        {STAT_ITEMS.map(({ label, key, tone }) => {
+          return (
+            <Card
+              key={label}
+              padding={4}
+              radius={3}
+              shadow={1}
+              border={true}
+              style={{
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <Stack space={3} style={{ position: 'relative', zIndex: 1 }}>
+                {/* Label */}
+                <Box>
+                  <Text
+                    size={0}
+                    weight="semibold"
+                    muted
+                    style={{
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      fontSize: '10px',
+                    }}
+                  >
                     {label}
                   </Text>
-                  <Text size={4} weight="bold">
-                    {value}
-                  </Text>
-                  {value > 0 && (
-                    <Badge tone={tone} size={0}>
-                      {value === 1 ? '1 item' : `${value} items`}
-                    </Badge>
+                </Box>
+
+                {/* Value */}
+                <Stack space={2}>
+                  <Text>{stats[key].toLocaleString()}</Text>
+
+                  {/* Progress bar */}
+                  {total > 0 && (
+                    <Box>
+                      <Box
+                        style={{
+                          width: '100%',
+                          height: '3px',
+                          backgroundColor: 'var(--card-border-color)',
+                          borderRadius: '2px',
+                          overflow: 'hidden',
+                        }}
+                      />
+                    </Box>
                   )}
                 </Stack>
-              </Card>
-            );
-          })}
-        </Grid>
-      </Stack>
-    </Card>
+              </Stack>
+            </Card>
+          );
+        })}
+      </Grid>
+    </Box>
   );
 }
