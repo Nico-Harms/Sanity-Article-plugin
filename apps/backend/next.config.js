@@ -7,6 +7,10 @@ const nextConfig = {
   },
   // Transpile packages from the monorepo
   transpilePackages: ['@sanity-notion-llm/shared'],
+  // Disable ESLint during build (handled at root level)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 module.exports = nextConfig;
