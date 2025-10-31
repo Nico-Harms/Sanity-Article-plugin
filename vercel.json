@@ -8,5 +8,6 @@
   "buildCommand": "npm run build:backend",
   "outputDirectory": "apps/backend/.next",
   "installCommand": "npm install --legacy-peer-deps",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- apps/backend packages/"
 }
