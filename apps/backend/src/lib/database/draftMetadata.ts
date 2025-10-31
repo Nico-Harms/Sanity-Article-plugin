@@ -108,6 +108,13 @@ export class DraftMetadataService {
     await this.collection.deleteOne({ sanityDraftId });
   }
 
+  async findByNotionPageId(
+    studioId: string,
+    notionPageId: string
+  ): Promise<DraftMetadata | null> {
+    return this.collection.findOne({ studioId, notionPageId });
+  }
+
   async getStats(studioId: string) {
     const pipeline = [
       { $match: { studioId } },
