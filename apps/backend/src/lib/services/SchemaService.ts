@@ -1,20 +1,13 @@
 import { createClient, SanityClient } from '@sanity/client';
+import type { SchemaField, SchemaType } from '@sanity-notion-llm/shared';
 
-export interface SchemaField {
-  name: string;
-  type: string;
-  title: string;
-  description?: string;
+interface TraverseContext {
+  path: string;
+  titleParts: string[];
+  parentPath?: string;
+  moduleType?: string;
+  isArrayItem?: boolean;
 }
-
-export interface SchemaType {
-  name: string;
-  title: string;
-  fields: SchemaField[];
-}
-/*===============================================
-=                  SchemaService                 =
-===============================================*/
 
 export class SchemaService {
   private client: SanityClient;
@@ -33,55 +26,42 @@ export class SchemaService {
     });
   }
 
-  /**
-   * Get all available schema types from Sanity
-   * Uses document inference since Management API requires different client
-   */
   async getSchemaTypes(): Promise<SchemaType[]> {
     try {
-      // Get all unique document types from existing documents
-      const documents = await this.client.fetch(`
-        *[!(_id in path("_.**"))] {
+      const documents = await this.client.fetch(
+        `*[!(_id in path("_.**")) && !(_id in path("drafts.**"))] {
           _type,
           ...
-        }
-      `);
+        }`
+      );
 
       if (!documents || documents.length === 0) {
-        // Return empty array - no fallback schemas
         return [];
       }
 
-      // Extract fields from first document of each type
       return this.inferSchemaFromDocuments(documents);
     } catch (error) {
       console.error('[schema-service] Failed to fetch schemas:', error);
-      // Return empty array on error - no fallback schemas
       return [];
     }
   }
 
-  /**
-   * Get fields for a specific schema type
-   */
   async getSchemaFields(typeName: string): Promise<SchemaField[]> {
     try {
-      // Try to get fields from schema definition first
       const schemaTypes = await this.getSchemaTypes();
       const schemaType = schemaTypes.find((type) => type.name === typeName);
       if (schemaType) {
         return schemaType.fields;
       }
 
-      // Fallback: infer from existing documents
-      const documents = await this.client.fetch(`
-        *[_type == "${typeName}"] [0...1] {
+      const documents = await this.client.fetch(
+        `*[_type == "${typeName}" && !(_id in path("drafts.**"))] [0...5] {
           ...
-        }
-      `);
+        }`
+      );
 
       if (documents && documents.length > 0) {
-        return this.inferFieldsFromDocument(documents[0]);
+        return this.inferFieldsFromMultipleDocuments(documents);
       }
 
       return [];
@@ -94,153 +74,265 @@ export class SchemaService {
     }
   }
 
-  /**
-   * Infer schema types from existing documents
-   */
   private inferSchemaFromDocuments(documents: any[]): SchemaType[] {
-    const typeMap = new Map<string, any>();
+    const typeMap = new Map<string, SchemaField[]>();
 
     documents.forEach((doc) => {
-      if (doc._type && !typeMap.has(doc._type)) {
-        typeMap.set(doc._type, {
-          name: doc._type,
-          title: doc._type.charAt(0).toUpperCase() + doc._type.slice(1),
-          fields: this.inferFieldsFromDocument(doc),
-        });
-      }
+      if (!doc._type) return;
+      const existing = typeMap.get(doc._type) ?? [];
+      const inferred = this.inferFieldsFromDocument(doc);
+      typeMap.set(doc._type, this.mergeFields(existing, inferred));
     });
 
-    return Array.from(typeMap.values());
+    return Array.from(typeMap.entries()).map(([typeName, fields]) => ({
+      name: typeName,
+      title: this.formatSegmentTitle(typeName),
+      fields: [...fields].sort((a, b) => a.path.localeCompare(b.path)),
+    }));
   }
 
-  /**
-   * Infer fields from a document
-   */
+  private inferFieldsFromMultipleDocuments(documents: any[]): SchemaField[] {
+    let merged: SchemaField[] = [];
+    documents.forEach((doc) => {
+      merged = this.mergeFields(merged, this.inferFieldsFromDocument(doc));
+    });
+    return merged;
+  }
+
+  private mergeFields(
+    existing: SchemaField[],
+    incoming: SchemaField[]
+  ): SchemaField[] {
+    const map = new Map<string, SchemaField>();
+    existing.forEach((field) => map.set(field.name, field));
+    incoming.forEach((field) => {
+      if (!map.has(field.name)) {
+        map.set(field.name, field);
+      }
+    });
+    return Array.from(map.values());
+  }
+
   private inferFieldsFromDocument(doc: any): SchemaField[] {
-    const fields: SchemaField[] = [];
+    const fieldMap = new Map<string, SchemaField>();
 
     Object.keys(doc).forEach((key) => {
-      if (key.startsWith('_')) return; // Skip metadata fields
-
-      const value = doc[key];
-      let type = 'string';
-
-      if (typeof value === 'object' && value !== null) {
-        if (Array.isArray(value)) {
-          // Check if it's block content (array of blocks with _type: 'block')
-          if (value.length > 0 && value[0] && value[0]._type === 'block') {
-            type = 'blockContent';
-          } else {
-            type = 'array';
-          }
-        } else if (value._type) {
-          type = value._type;
-        } else {
-          type = 'object';
-        }
-      } else if (typeof value === 'number') {
-        type = 'number';
-      } else if (typeof value === 'boolean') {
-        type = 'boolean';
-      }
-
-      fields.push({
-        name: key,
-        type,
-        title: key.charAt(0).toUpperCase() + key.slice(1),
-      });
+      if (key.startsWith('_')) return;
+      this.traverseValue(
+        doc[key],
+        {
+          path: key,
+          titleParts: [this.formatSegmentTitle(key)],
+          parentPath: undefined,
+          moduleType: undefined,
+          isArrayItem: false,
+        },
+        fieldMap
+      );
     });
 
-    return fields;
+    return Array.from(fieldMap.values());
   }
 
-  /**
-   * Convert content to appropriate Sanity format based on field type
-   */
-  convertContentForField(content: any, fieldType: string): any {
-    switch (fieldType) {
-      case 'blockContent':
-        // Convert string to Sanity block content
-        if (typeof content === 'string') {
-          return this.convertStringToBlockContent(content);
-        }
-        return content;
+  private traverseValue(
+    value: any,
+    context: TraverseContext,
+    fieldMap: Map<string, SchemaField>
+  ) {
+    const { path, titleParts, parentPath, moduleType, isArrayItem } = context;
 
-      case 'slug':
-        // Convert to Sanity slug format
-        if (typeof content === 'string') {
-          return {
-            _type: 'slug',
-            current: content
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, '-')
-              .replace(/^-|-$/g, ''),
-          };
-        }
-        return content;
+    const isBlockArray =
+      Array.isArray(value) && this.isBlockContentArray(value);
+    const type = isBlockArray ? 'blockContent' : this.inferValueType(value);
 
-      case 'datetime':
-      case 'date':
-        // Convert to ISO date string
-        if (content && typeof content === 'object' && content.date) {
-          return content.date.start || content.date;
-        }
-        if (typeof content === 'string') {
-          return content;
-        }
-        return new Date().toISOString();
+    const field: SchemaField = {
+      name: path,
+      path,
+      type,
+      title: titleParts.join(' → '),
+      parentPath,
+      moduleType,
+      isArrayItem,
+      isVirtual: isArrayItem || path.includes('[]'),
+    };
 
-      case 'string':
-      case 'text':
-        return typeof content === 'string' ? content : String(content);
+    if (!fieldMap.has(field.name)) {
+      fieldMap.set(field.name, field);
+    }
 
-      case 'number':
-        return typeof content === 'number' ? content : Number(content) || 0;
+    if (isBlockArray) {
+      return;
+    }
 
-      case 'boolean':
-        return Boolean(content);
+    if (Array.isArray(value)) {
+      this.handleArrayValue(value, context, fieldMap);
+      return;
+    }
 
-      case 'array':
-        // Handle arrays (like categories, tags)
-        if (Array.isArray(content)) {
-          return content;
-        }
-        if (typeof content === 'string') {
-          return content
-            .split(',')
-            .map((item) => item.trim())
-            .filter(Boolean);
-        }
-        return [];
-
-      case 'image':
-      case 'reference':
-        // Skip these fields for now - they need special handling
-        return undefined;
-
-      default:
-        return content;
+    if (value && typeof value === 'object') {
+      Object.keys(value).forEach((childKey) => {
+        if (childKey.startsWith('_')) return;
+        const childValue = value[childKey];
+        this.traverseValue(
+          childValue,
+          {
+            path: `${path}.${childKey}`,
+            titleParts: [...titleParts, this.formatSegmentTitle(childKey)],
+            parentPath: path,
+            moduleType,
+            isArrayItem,
+          },
+          fieldMap
+        );
+      });
     }
   }
 
-  /**
-   * Convert plain text to Sanity block content format
-   */
+  private handleArrayValue(
+    arrayValue: any[],
+    context: TraverseContext,
+    fieldMap: Map<string, SchemaField>
+  ) {
+    const { path, titleParts } = context;
+
+    const objectItems = arrayValue.filter(
+      (item) => item && typeof item === 'object' && !Array.isArray(item)
+    );
+
+    if (objectItems.length === 0) {
+      return;
+    }
+
+    if (this.isRichTextBlockArray(objectItems)) {
+      return;
+    }
+
+    const groupedByModule = new Map<string | undefined, any[]>();
+
+    objectItems.forEach((item) => {
+      const moduleType =
+        typeof item._type === 'string' ? item._type : undefined;
+      const key = moduleType || '__default__';
+      if (!groupedByModule.has(key)) {
+        groupedByModule.set(key, []);
+      }
+      groupedByModule.get(key)!.push(item);
+    });
+
+    const ignoredModuleTypes = new Set(['block', 'span', 'markDefs']);
+    const ignoredBlockKeys = new Set(['children', 'markDefs']);
+
+    groupedByModule.forEach((items, moduleKey) => {
+      const moduleType = moduleKey === '__default__' ? undefined : moduleKey;
+
+      if (moduleType && ignoredModuleTypes.has(moduleType)) {
+        return;
+      }
+
+      const childKeys = new Set<string>();
+
+      items.forEach((item) => {
+        Object.keys(item).forEach((childKey) => {
+          if (childKey.startsWith('_')) return;
+          if (moduleType === 'block' && ignoredBlockKeys.has(childKey)) return;
+          childKeys.add(childKey);
+        });
+      });
+
+      childKeys.forEach((childKey) => {
+        const sampleItem = items.find((item) => item[childKey] !== undefined);
+        const sampleValue = sampleItem ? sampleItem[childKey] : null;
+
+        const arrayPath = `${path}[]`;
+        const moduleSegment = moduleType ? `.${moduleType}` : '';
+        const childPath = `${arrayPath}${moduleSegment}.${childKey}`;
+
+        const childTitleParts = [
+          ...titleParts,
+          ...(moduleType ? [this.formatSegmentTitle(moduleType)] : []),
+          this.formatSegmentTitle(childKey),
+        ];
+
+        this.traverseValue(
+          sampleValue,
+          {
+            path: childPath,
+            titleParts: childTitleParts,
+            parentPath: path,
+            moduleType,
+            isArrayItem: true,
+          },
+          fieldMap
+        );
+      });
+    });
+  }
+
+  private isRichTextBlockArray(items: any[]): boolean {
+    if (items.length === 0) return false;
+    return items.every((item) => item && item._type === 'block');
+  }
+
+  private isBlockContentArray(arrayValue: any[]): boolean {
+    if (!Array.isArray(arrayValue) || arrayValue.length === 0) {
+      return false;
+    }
+
+    return arrayValue.every(
+      (item) => item && typeof item === 'object' && item._type === 'block'
+    );
+  }
+
+  private inferValueType(value: any): string {
+    if (Array.isArray(value)) {
+      return 'array';
+    }
+
+    if (value && typeof value === 'object') {
+      if (value._type === 'slug') {
+        return 'slug';
+      }
+      if (value._type === 'image') {
+        return 'image';
+      }
+      if (typeof value._type === 'string') {
+        return value._type;
+      }
+      return 'object';
+    }
+
+    if (typeof value === 'number') {
+      return 'number';
+    }
+
+    if (typeof value === 'boolean') {
+      return 'boolean';
+    }
+
+    return 'string';
+  }
+
+  private formatSegmentTitle(value: string): string {
+    return value
+      .replace(/\[]/g, '')
+      .replace(/([A-Z])/g, ' $1')
+      .replace(/[-_]/g, ' ')
+      .replace(/^./, (match) => match.toUpperCase())
+      .trim();
+  }
+
   private convertStringToBlockContent(text: string): any[] {
     if (!text || typeof text !== 'string') {
       return [];
     }
 
-    // Clean the text - remove extra whitespace and normalize
     const cleanText = text.trim();
     if (!cleanText) {
       return [];
     }
 
-    // Split text into paragraphs (by double newlines or single newlines)
     const paragraphs = cleanText.split(/\n\s*\n/).filter((p) => p.trim());
 
-    // If no paragraphs found, treat the whole text as one paragraph
     if (paragraphs.length === 0) {
       paragraphs.push(cleanText);
     }
@@ -264,52 +356,220 @@ export class SchemaService {
           ],
         };
       })
-      .filter(Boolean); // Remove any null entries
+      .filter(Boolean);
   }
 
-  /**
-   * Generate a unique key for Sanity blocks
-   */
   private generateKey(): string {
     return Math.random().toString(36).substring(2, 15);
   }
 
-  /**
-   * Filter and convert content to match schema fields
-   */
   async prepareContentForSchema(
     content: Record<string, any>,
     schemaType: string
   ): Promise<Record<string, any>> {
     const fields = await this.getSchemaFields(schemaType);
+    const rawValues = new Map<string, any>(Object.entries(content));
     const preparedContent: Record<string, any> = {};
 
-    // Only include fields that exist in the schema
-    for (const field of fields) {
-      const fieldName = field.name;
-      const fieldType = field.type;
+    const topLevelFields = fields.filter((field) => !field.isArrayItem);
 
-      if (content.hasOwnProperty(fieldName)) {
-        const convertedValue = this.convertContentForField(
-          content[fieldName],
-          fieldType
+    topLevelFields.forEach((field) => {
+      if (field.type === 'array') {
+        const directValue = this.popRawValue(rawValues, field.path);
+        const arrayValue = this.buildArrayFromRawValues(
+          rawValues,
+          field,
+          fields,
+          directValue
         );
-
-        // Only include the field if conversion was successful
-        if (convertedValue !== undefined) {
-          preparedContent[fieldName] = convertedValue;
+        if (Array.isArray(arrayValue) && arrayValue.length > 0) {
+          preparedContent[field.path] = arrayValue;
         }
+        return;
+      }
+
+      const rawValue = this.popRawValue(rawValues, field.path);
+      if (rawValue !== undefined) {
+        preparedContent[field.path] = this.convertContentForField(
+          rawValue,
+          field.type
+        );
+      }
+    });
+
+    return preparedContent;
+  }
+
+  private popRawValue(rawValues: Map<string, any>, key: string): any {
+    if (!rawValues.has(key)) return undefined;
+    const value = rawValues.get(key);
+    rawValues.delete(key);
+    return value;
+  }
+
+  private extractArrayFieldValue(
+    rawValues: Map<string, any>,
+    path: string
+  ): { value: any; index?: number } | null {
+    if (rawValues.has(path)) {
+      const value = rawValues.get(path);
+      rawValues.delete(path);
+      return { value };
+    }
+
+    const regex = this.createPathRegex(path);
+    for (const key of Array.from(rawValues.keys())) {
+      const match = key.match(regex);
+      if (match) {
+        const value = rawValues.get(key);
+        rawValues.delete(key);
+        const index = match[1] ? parseInt(match[1], 10) : undefined;
+        return { value, index: Number.isNaN(index) ? undefined : index };
       }
     }
 
-    return preparedContent;
+    return null;
+  }
+
+  private createPathRegex(path: string): RegExp {
+    const escaped = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const pattern = '^' + escaped.replace(/\\\[\\\]/g, '\\[(\\d+)?\\]') + '$';
+    return new RegExp(pattern);
+  }
+
+  private buildArrayFromRawValues(
+    rawValues: Map<string, any>,
+    arrayField: SchemaField,
+    allFields: SchemaField[],
+    directValue: any
+  ): any[] | undefined {
+    if (Array.isArray(directValue)) {
+      return directValue.map((item) => this.ensureArrayItemHasKey(item));
+    }
+
+    const nestedFields = allFields.filter(
+      (field) => field.parentPath === arrayField.path && field.isArrayItem
+    );
+
+    if (nestedFields.length === 0) {
+      if (directValue === undefined) return undefined;
+      const valueArray = Array.isArray(directValue)
+        ? directValue
+        : [directValue];
+      return valueArray.map((item) => this.ensureArrayItemHasKey(item));
+    }
+
+    const items = new Map<number, Record<string, any>>();
+    const moduleDefaultIndex = new Map<string | undefined, number>();
+
+    nestedFields.forEach((nestedField) => {
+      const resolved = this.extractArrayFieldValue(rawValues, nestedField.path);
+      if (!resolved) return;
+
+      const { value, index } = resolved;
+      const moduleKey = nestedField.moduleType || '__default__';
+
+      let targetIndex: number;
+      if (index !== undefined) {
+        targetIndex = index;
+      } else if (moduleDefaultIndex.has(moduleKey)) {
+        targetIndex = moduleDefaultIndex.get(moduleKey)!;
+      } else {
+        targetIndex = items.size;
+        moduleDefaultIndex.set(moduleKey, targetIndex);
+      }
+
+      const item = items.get(targetIndex) ?? {};
+
+      if (
+        nestedField.moduleType &&
+        (typeof item._type !== 'string' || item._type.length === 0)
+      ) {
+        item._type = nestedField.moduleType;
+      }
+
+      const propertyName = this.getNestedFieldKey(nestedField.path);
+      item[propertyName] = this.convertContentForField(value, nestedField.type);
+
+      items.set(targetIndex, item);
+    });
+
+    if (items.size === 0) {
+      return undefined;
+    }
+
+    return Array.from(items.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([, item]) => this.ensureArrayItemHasKey(item));
+  }
+
+  private ensureArrayItemHasKey(item: any): any {
+    if (!item || typeof item !== 'object') {
+      return item;
+    }
+    if (typeof item._key !== 'string' || item._key.length === 0) {
+      item._key = this.generateKey();
+    }
+    return item;
+  }
+
+  private getNestedFieldKey(path: string): string {
+    const parts = path.split('.');
+    return parts[parts.length - 1];
+  }
+
+  private convertContentForField(value: any, fieldType: string): any {
+    if (value === undefined || value === null) {
+      return value;
+    }
+
+    if (fieldType === 'blockContent') {
+      if (Array.isArray(value)) {
+        return value;
+      }
+      if (typeof value === 'string') {
+        return this.convertStringToBlockContent(value);
+      }
+      return value;
+    }
+
+    if (fieldType === 'slug' && typeof value === 'string') {
+      return {
+        _type: 'slug',
+        current: value
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, ''),
+      };
+    }
+
+    if (
+      (fieldType === 'datetime' || fieldType === 'date') &&
+      typeof value === 'string'
+    ) {
+      return value;
+    }
+
+    if (
+      typeof value === 'string' ||
+      typeof value === 'number' ||
+      typeof value === 'boolean'
+    ) {
+      return value;
+    }
+
+    if (value && typeof value === 'object') {
+      return value;
+    }
+
+    return value;
   }
 }
 
 export function createSchemaService(
   projectId: string,
   token: string,
-  dataset?: string
+  dataset = 'production'
 ): SchemaService {
   return new SchemaService(projectId, token, dataset);
 }

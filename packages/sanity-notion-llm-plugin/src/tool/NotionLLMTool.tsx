@@ -58,6 +58,8 @@ export function NotionLLMTool() {
         }))
       }
       onRefreshSchema={() => void setSchema(config.selectedSchema)}
+      onSaveFields={saveConfig}
+      saving={state.saving}
     />
   );
 

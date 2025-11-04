@@ -9,6 +9,8 @@ interface SimpleFieldsTabContentProps {
   onFieldToggle: (fieldName: string, enabled: boolean) => void;
   onFieldPurposeChange: (fieldName: string, purpose: string) => void;
   onRefreshSchema: () => void;
+  onSaveFields: () => void;
+  saving: boolean;
 }
 
 /**
@@ -36,6 +38,8 @@ export function SimpleFieldsTabContent({
   onFieldToggle,
   onFieldPurposeChange,
   onRefreshSchema,
+  onSaveFields,
+  saving,
 }: SimpleFieldsTabContentProps) {
   return (
     <Stack space={5}>
@@ -72,7 +76,12 @@ export function SimpleFieldsTabContent({
         <Card padding={4} border radius={2} shadow={1}>
           <Stack space={4}>
             {/* Section Header */}
-            <Flex justify="space-between" align="center">
+            <Flex
+              direction={['column', 'column', 'row']}
+              gap={3}
+              justify="space-between"
+              align={['flex-start', 'flex-start', 'center']}
+            >
               <Box>
                 <Text size={2} weight="semibold">
                   Detected Fields
@@ -84,12 +93,21 @@ export function SimpleFieldsTabContent({
                   </Text>
                 </Box>
               </Box>
-              <Button
-                text="Refresh Schema"
-                mode="ghost"
-                tone="primary"
-                onClick={onRefreshSchema}
-              />
+              <Flex gap={2} justify={['flex-end']} wrap="wrap">
+                <Button
+                  text="Refresh Schema"
+                  mode="ghost"
+                  tone="primary"
+                  onClick={onRefreshSchema}
+                />
+                <Button
+                  text="Save Fields"
+                  tone="positive"
+                  loading={saving}
+                  disabled={saving}
+                  onClick={onSaveFields}
+                />
+              </Flex>
             </Flex>
 
             {/* Fields List */}
@@ -106,6 +124,13 @@ export function SimpleFieldsTabContent({
               ))}
             </Stack>
           </Stack>
+        </Card>
+      )}
+      {!config?.selectedSchema && (
+        <Card padding={4} border radius={2} shadow={1} tone="caution">
+          <Text size={1}>
+            Select a schema above to configure which fields should be generated.
+          </Text>
         </Card>
       )}
     </Stack>

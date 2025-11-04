@@ -1,11 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-  PluginConfig,
-  SchemaType,
-  DetectedField,
-} from '@sanity-notion-llm/shared';
+import { useCallback, useEffect, useState } from 'react';
+import type { PluginConfig, SchemaType, DetectedField } from '@sanity-notion-llm/shared';
 import { ApiClient } from '../../services/apiClient';
-import { debounce } from '../../utils/debounce';
 
 export interface PluginConfigState {
   config: PluginConfig | null;
@@ -46,9 +41,6 @@ export function usePluginConfig(studioId: string | null) {
     saving: false,
     error: null,
   });
-
-  const previousFieldsRef = useRef<string>('');
-  const isSavingRef = useRef<boolean>(false);
 
   // Load configuration and schema types
   useEffect(() => {
@@ -134,75 +126,6 @@ export function usePluginConfig(studioId: string | null) {
       }));
     }
   }, []);
-
-  // Smart field save function
-  const saveFields = useCallback(
-    async (fields: DetectedField[]) => {
-      if (isSavingRef.current) return;
-
-      isSavingRef.current = true;
-      try {
-        const currentConfig = await ApiClient.loadConfig(studioId!);
-        if (currentConfig.config) {
-          await ApiClient.saveConfig({
-            ...currentConfig.config,
-            detectedFields: fields,
-          });
-        }
-      } catch (error) {
-        console.error('[usePluginConfig] Field save failed:', error);
-      } finally {
-        isSavingRef.current = false;
-      }
-    },
-    [studioId]
-  );
-
-  // Debounced save for text changes
-  const debouncedFieldSave = useCallback(debounce(saveFields, 3000), [
-    saveFields,
-  ]);
-
-  // Smart field change detection and saving
-  useEffect(() => {
-    if (!state.config?.detectedFields || !studioId) return;
-
-    const currentFieldsString = JSON.stringify(state.config.detectedFields);
-
-    // Skip if no changes
-    if (previousFieldsRef.current === currentFieldsString) return;
-
-    const previousFields = previousFieldsRef.current
-      ? JSON.parse(previousFieldsRef.current)
-      : [];
-    const currentFields = state.config.detectedFields;
-
-    // Detect change types
-    const hasBooleanChanges = previousFields.some(
-      (prevField: DetectedField, index: number) => {
-        const currentField = currentFields[index];
-        return currentField && prevField.enabled !== currentField.enabled;
-      }
-    );
-
-    const hasTextChanges = previousFields.some(
-      (prevField: DetectedField, index: number) => {
-        const currentField = currentFields[index];
-        return currentField && prevField.purpose !== currentField.purpose;
-      }
-    );
-
-    // Save based on change type
-    if (hasBooleanChanges) {
-      // Boolean changes: save immediately
-      saveFields(currentFields);
-    } else if (hasTextChanges) {
-      // Text changes: save with debounce
-      debouncedFieldSave(currentFields);
-    }
-
-    previousFieldsRef.current = currentFieldsString;
-  }, [state.config?.detectedFields, saveFields, debouncedFieldSave, studioId]);
 
   // Manual save (for settings tab button)
   const saveConfig = useCallback(async () => {

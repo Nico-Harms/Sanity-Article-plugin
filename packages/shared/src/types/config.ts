@@ -1,9 +1,14 @@
 export interface DetectedField {
-  name: string; // e.g., "bodypart1", "quote", "Author"
-  type: string; // e.g., "string", "text", "blockContent"
-  title: string; // e.g., "Body Part 1", "Quote"
-  enabled: boolean; // User can toggle on/off
-  purpose?: string; // User-provided description of what this field should contain
+  name: string; // unique key (path)
+  type: string;
+  title: string;
+  enabled: boolean;
+  purpose?: string;
+  path: string;
+  parentPath?: string;
+  moduleType?: string;
+  isArrayItem?: boolean;
+  isVirtual?: boolean;
 }
 
 export interface PluginConfig {
@@ -32,6 +37,11 @@ export interface SchemaField {
   type: string;
   title?: string;
   description?: string;
+  path: string;
+  parentPath?: string;
+  moduleType?: string;
+  isArrayItem?: boolean;
+  isVirtual?: boolean;
 }
 
 export interface SchemaType {

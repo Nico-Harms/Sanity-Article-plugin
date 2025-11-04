@@ -93,7 +93,8 @@ export class LLMService {
     const fieldInstructions = enabledFields
       .map((field) => {
         const purpose = field.purpose || 'Generate appropriate content';
-        return `- ${field.name} (${field.type}): ${purpose}`;
+        const label = field.title || field.name;
+        return `- ${label} (${field.type}): ${purpose}`;
       })
       .join('\n');
 
@@ -207,7 +208,7 @@ Generate the content now:`;
       // Validate required fields
       const enabledFields = detectedFields.filter((field) => field.enabled);
       const missingFields = enabledFields.filter(
-        (field) => !parsed.hasOwnProperty(field.name)
+        (field) => !field.isVirtual && !parsed.hasOwnProperty(field.name)
       );
 
       if (missingFields.length > 0) {
