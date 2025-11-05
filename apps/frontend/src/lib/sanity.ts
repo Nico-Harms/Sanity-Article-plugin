@@ -1,10 +1,21 @@
 import { createClient } from '@sanity/client';
 
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID;
+const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET;
+const apiVersion = process.env.NEXT_PUBLIC_SANITY_API_VERSION;
+const useCdn = process.env.NEXT_PUBLIC_SANITY_USE_CDN;
+
+if (!projectId) {
+  throw new Error(
+    'Missing NEXT_PUBLIC_SANITY_PROJECT_ID environment variable for Sanity client'
+  );
+}
+
 export const client = createClient({
-  projectId: 'mejvb3fs',
-  dataset: 'production',
-  useCdn: false, // Set to true if you want to use CDN
-  apiVersion: '2025-10-21', // Use current date
+  projectId,
+  dataset,
+  useCdn,
+  apiVersion,
 });
 
 type SanitySlug = {
