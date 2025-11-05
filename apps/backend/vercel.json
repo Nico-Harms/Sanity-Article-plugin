@@ -1,0 +1,13 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/generate-content",
+      "schedule": "0 9 * * *"
+    }
+  ],
+  "buildCommand": "cd ../.. && npm run build:backend",
+  "outputDirectory": ".next",
+  "installCommand": "cd ../.. && npm install --legacy-peer-deps",
+  "framework": "nextjs"
+}
+
