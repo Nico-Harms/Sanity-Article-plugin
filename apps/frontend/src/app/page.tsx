@@ -6,6 +6,8 @@ import {
   Post,
 } from '@/lib/sanity';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const [posts, complexBlogs] = await Promise.all([
     getAllPosts(),

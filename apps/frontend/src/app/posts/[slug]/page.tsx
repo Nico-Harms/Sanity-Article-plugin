@@ -1,16 +1,10 @@
-import { getPostBySlug, getAllPosts } from '@/lib/sanity';
+import { getPostBySlug } from '@/lib/sanity';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 
+export const dynamic = 'force-dynamic';
+
 type PostPageParams = Promise<{ slug: string }>;
-
-export async function generateStaticParams() {
-  const posts = await getAllPosts();
-
-  return posts.map((post: any) => ({
-    slug: post.slug?.current || post._id,
-  }));
-}
 
 export default async function PostPage({
   params,
@@ -43,7 +37,7 @@ export default async function PostPage({
           <span>{new Date(post._createdAt).toLocaleDateString()}</span>
           {post.categories && post.categories.length > 0 && (
             <div className="flex space-x-2">
-              {post.categories.map((category: any, index: number) => (
+              {post.categories.map((category, index) => (
                 <span
                   key={index}
                   className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs"

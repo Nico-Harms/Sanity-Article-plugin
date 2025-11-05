@@ -14,8 +14,8 @@ if (!projectId) {
 export const client = createClient({
   projectId,
   dataset,
-  useCdn,
   apiVersion,
+  useCdn: Boolean(useCdn),
 });
 
 type SanitySlug = {
@@ -40,6 +40,14 @@ export type Post = {
   categories?: SanityCategory[];
 };
 
+type SanityImageAsset = {
+  url?: string;
+};
+
+type SanityImage = {
+  asset?: SanityImageAsset;
+};
+
 type PortableTextSpan = {
   _type?: string;
   text?: string;
@@ -58,6 +66,24 @@ export type ComplexBlogPost = {
   ingress?: PortableTextBlock[];
 };
 
+export type PostDetail = Post & {
+  body?: string;
+  mainImage?: SanityImage;
+};
+
+const safeFetch = async <T>(
+  query: string,
+  params: Record<string, unknown>,
+  fallback: T
+): Promise<T> => {
+  try {
+    return await client.fetch<T>(query, params);
+  } catch (error) {
+    console.error('[sanity] Failed fetching data for query', error);
+    return fallback;
+  }
+};
+
 // Query to get all posts
 export const getAllPosts = async (): Promise<Post[]> => {
   const query = `*[_type == "post"] | order(_createdAt desc) {
@@ -74,7 +100,7 @@ export const getAllPosts = async (): Promise<Post[]> => {
     }
   }`;
 
-  return client.fetch<Post[]>(query);
+  return safeFetch<Post[]>(query, {}, []);
 };
 
 export const getAllComplexBlogs = async (): Promise<ComplexBlogPost[]> => {
@@ -92,11 +118,13 @@ export const getAllComplexBlogs = async (): Promise<ComplexBlogPost[]> => {
     }
   }`;
 
-  return client.fetch<ComplexBlogPost[]>(query);
+  return safeFetch<ComplexBlogPost[]>(query, {}, []);
 };
 
 // Query to get a single post by slug
-export const getPostBySlug = async (slug: string) => {
+export const getPostBySlug = async (
+  slug: string
+): Promise<PostDetail | null> => {
   const query = `*[_type == "post" && slug.current == $slug][0] {
     _id,
     title,
@@ -113,5 +141,5 @@ export const getPostBySlug = async (slug: string) => {
     }
   }`;
 
-  return client.fetch(query, { slug });
+  return safeFetch<PostDetail | null>(query, { slug }, null);
 };
