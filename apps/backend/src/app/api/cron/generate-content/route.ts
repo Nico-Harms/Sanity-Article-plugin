@@ -3,6 +3,10 @@ import { isMonday } from '@/lib/cron/helpers';
 import { generateWeekContent } from '@/lib/cron/weekGeneration';
 import { publishScheduledContent } from '@/lib/cron/dailyPublishing';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 /*===============================================
 |=          Cron Endpoint          =
 ===============================================*/
