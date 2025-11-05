@@ -8,7 +8,6 @@ import type { NotionPage } from '@sanity-notion-llm/shared';
 import {
   getWeekRangeForDate,
   isDateInWeekRange,
-  isFutureDate,
   formatMonthAndDate,
 } from '../../utils/dateUtils';
 
