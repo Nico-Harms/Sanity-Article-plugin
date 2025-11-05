@@ -3,4 +3,3 @@
   "buildCommand": "cd ../.. && npm run build --workspace=apps/frontend",
   "outputDirectory": ".next"
 }
-
