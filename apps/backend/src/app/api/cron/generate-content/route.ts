@@ -20,6 +20,12 @@ export const revalidate = 0;
  *
  * Authorization: Requires CRON_SECRET in Authorization header
  */
+
+// Force dynamic rendering - required for cron jobs that use request headers
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(request: NextRequest) {
   try {
     // Verify authorization
