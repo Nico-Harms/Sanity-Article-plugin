@@ -1,13 +1,13 @@
 import { createClient } from '@sanity/client';
 
-const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID;
-const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET;
-const apiVersion = process.env.NEXT_PUBLIC_SANITY_API_VERSION;
-const useCdn = process.env.NEXT_PUBLIC_SANITY_USE_CDN;
+const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || '';
+const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production';
+const apiVersion = process.env.NEXT_PUBLIC_SANITY_API_VERSION || '2025-01-01';
+const useCdn = process.env.NEXT_PUBLIC_SANITY_USE_CDN === 'true';
 
-if (!projectId) {
-  throw new Error(
-    'Missing NEXT_PUBLIC_SANITY_PROJECT_ID environment variable for Sanity client'
+if (!process.env.NEXT_PUBLIC_SANITY_PROJECT_ID) {
+  console.warn(
+    '[sanity] NEXT_PUBLIC_SANITY_PROJECT_ID is not set. Sanity client will not function properly.'
   );
 }
 
@@ -15,7 +15,7 @@ export const client = createClient({
   projectId,
   dataset,
   apiVersion,
-  useCdn: Boolean(useCdn),
+  useCdn,
 });
 
 type SanitySlug = {
