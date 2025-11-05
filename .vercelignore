@@ -1,6 +1,17 @@
-apps/frontend
+# Studio app (not needed for frontend deployment)
 apps/studio
+
+# Backend app (not needed for frontend deployment)  
+apps/backend
+
+# Node modules
 node_modules
+
+# Git
 .git
+
+# Logs
 *.log
+
+# OS files
 .DS_Store

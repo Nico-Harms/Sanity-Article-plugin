@@ -1,5 +1,4 @@
 {
-  "installCommand": "cd ../.. && npm install",
-  "buildCommand": "cd ../.. && npm run build --workspace=apps/frontend",
+  "buildCommand": "cd ../.. && npm install && cd apps/frontend && npm run build",
   "outputDirectory": ".next"
 }
