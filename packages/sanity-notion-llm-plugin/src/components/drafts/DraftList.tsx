@@ -90,6 +90,7 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
     const fetchData = async () => {
       try {
         setLoading(true);
+        setError(null);
         const [draftsResponse, notionResponse] = await Promise.all([
           ApiClient.getDrafts(studioId),
           ApiClient.getNotionData(studioId),
@@ -111,7 +112,7 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
     };
 
     fetchData();
-  }, [studioId]);
+  }, [studioId, selectedWeekStart]); // Refresh when studioId or week changes
 
   // Filter drafts by week
   const weekRange = getWeekRangeForDate(selectedWeekStart);

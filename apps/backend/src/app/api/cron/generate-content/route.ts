@@ -20,6 +20,9 @@ export const revalidate = 0;
  * 2. Daily: Publishes approved drafts scheduled for today
  *
  * Authorization: Requires CRON_SECRET in Authorization header
+ *
+ * Query parameters (for testing):
+ * - forceWeekGeneration=true: Force week generation regardless of day
  */
 
 export async function GET(request: NextRequest) {
@@ -40,16 +43,26 @@ export async function GET(request: NextRequest) {
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Allow forcing week generation for manual testing via query parameter
+    // Note: Vercel's automatic cron runs don't include query parameters,
+    // so forceWeekGeneration will always be false for production cron jobs
+    const { searchParams } = new URL(request.url);
+    const forceWeekGeneration =
+      searchParams.get('forceWeekGeneration') === 'true';
+
     const isMondayToday = isMonday();
+    const shouldGenerateWeek = isMondayToday || forceWeekGeneration;
+
     const results = {
       timestamp: new Date().toISOString(),
       isMonday: isMondayToday,
+      forceWeekGeneration: forceWeekGeneration,
       weekGeneration: null as any,
       dailyPublishing: null as any,
     };
 
-    // Task 1: Generate week content (Monday only)
-    if (isMondayToday) {
+    // Task 1: Generate week content (Monday only, or if forced for testing)
+    if (shouldGenerateWeek) {
       console.log('[cron] Starting week generation task (Monday)...');
       results.weekGeneration = await generateWeekContent();
       console.log(
@@ -58,7 +71,8 @@ export async function GET(request: NextRequest) {
     } else {
       results.weekGeneration = {
         skipped: true,
-        reason: 'Not Monday - week generation only runs on Mondays',
+        reason:
+          'Not Monday - week generation only runs on Mondays (use ?forceWeekGeneration=true to test)',
       };
     }
 
