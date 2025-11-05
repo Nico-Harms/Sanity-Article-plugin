@@ -27,7 +27,7 @@ export default async function Home() {
               rel="noopener noreferrer"
               className="text-blue-600 hover:underline"
             >
-              Sanity Studio
+              Sanity Studio - test
             </a>
           </p>
         </div>
