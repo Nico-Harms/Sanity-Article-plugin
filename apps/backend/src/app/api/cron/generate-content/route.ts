@@ -40,8 +40,11 @@ export async function GET(request: NextRequest) {
     }
 
     if (authHeader !== `Bearer ${cronSecret}`) {
+      console.error('[cron] Unauthorized access attempt');
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
+
+    console.log(`[cron] Cron job triggered at ${new Date().toISOString()}`);
 
     // Allow forcing week generation for manual testing via query parameter
     // Note: Vercel's automatic cron runs don't include query parameters,
