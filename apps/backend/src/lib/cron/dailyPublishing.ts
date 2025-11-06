@@ -28,26 +28,37 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
   try {
     const activeConfigs = await getActiveConfigs();
     const today = new Date().toISOString().split('T')[0];
-    console.log(`[cron] Daily publishing started - Looking for approved drafts scheduled for: ${today} (UTC)`);
-    console.log(`[cron] Found ${activeConfigs.length} active studio configuration(s)`);
-    
+    console.log(
+      `[cron] Daily publishing started - Looking for approved drafts scheduled for: ${today} (UTC)`
+    );
+    console.log(
+      `[cron] Found ${activeConfigs.length} active studio configuration(s)`
+    );
+
     const draftMetadataService = await getDraftMetadataService();
 
     // Get all approved drafts scheduled for today
     const draftsToPublish =
       await draftMetadataService.findDraftsForPublishing(today);
-    
-    console.log(`[cron] Found ${draftsToPublish.length} approved draft(s) scheduled for today`);
+
+    console.log(
+      `[cron] Found ${draftsToPublish.length} approved draft(s) scheduled for today`
+    );
     if (draftsToPublish.length > 0) {
-      console.log(`[cron] Drafts found:`, draftsToPublish.map(d => ({
-        sanityDraftId: d.sanityDraftId,
-        status: d.status,
-        plannedPublishDate: d.plannedPublishDate,
-        studioId: d.studioId,
-        notionPageId: d.notionPageId
-      })));
+      console.log(
+        `[cron] Drafts found:`,
+        draftsToPublish.map((d) => ({
+          sanityDraftId: d.sanityDraftId,
+          status: d.status,
+          plannedPublishDate: d.plannedPublishDate,
+          studioId: d.studioId,
+          notionPageId: d.notionPageId,
+        }))
+      );
     } else {
-      console.log(`[cron] No approved drafts found scheduled for ${today} (UTC)`);
+      console.log(
+        `[cron] No approved drafts found scheduled for ${today} (UTC)`
+      );
     }
 
     // Group drafts by studioId
@@ -63,7 +74,9 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
     for (const config of activeConfigs) {
       const studioDrafts = draftsByStudio.get(config.studioId) || [];
 
-      console.log(`[cron] Processing studio: ${config.studioId} - ${studioDrafts.length} draft(s) to publish`);
+      console.log(
+        `[cron] Processing studio: ${config.studioId} - ${studioDrafts.length} draft(s) to publish`
+      );
 
       if (studioDrafts.length === 0) {
         continue; // No drafts to publish for this studio
@@ -78,15 +91,21 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
           continue;
         }
 
-        console.log(`[cron] Sanity config valid for studio ${config.studioId} (projectId: ${config.sanityProjectId})`);
+        console.log(
+          `[cron] Sanity config valid for studio ${config.studioId} (projectId: ${config.sanityProjectId})`
+        );
         const sanityContext = createSanityContextFromConfig(config);
 
         // Publish each draft
         for (const draft of studioDrafts) {
           try {
-            console.log(`[cron] Attempting to publish draft: ${draft.sanityDraftId} (scheduled for ${draft.plannedPublishDate})`);
+            console.log(
+              `[cron] Attempting to publish draft: ${draft.sanityDraftId} (scheduled for ${draft.plannedPublishDate})`
+            );
             await sanityContext.service.publishDraft(draft.sanityDraftId);
-            console.log(`[cron] ✓ Successfully published draft: ${draft.sanityDraftId}`);
+            console.log(
+              `[cron] ✓ Successfully published draft: ${draft.sanityDraftId}`
+            );
             await draftMetadataService.updateStatus(
               draft.sanityDraftId,
               'published'
@@ -105,7 +124,9 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
           }
         }
 
-        console.log(`[cron] ✓ Completed processing studio ${config.studioId} - ${studioDrafts.length} draft(s) published`);
+        console.log(
+          `[cron] ✓ Completed processing studio ${config.studioId} - ${studioDrafts.length} draft(s) published`
+        );
         stats.studiosProcessed++;
       } catch (error) {
         const errorMessage =
@@ -117,8 +138,10 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
         );
       }
     }
-    
-    console.log(`[cron] Daily publishing completed - Published: ${stats.draftsPublished}, Studios processed: ${stats.studiosProcessed}, Errors: ${stats.errors.length}`);
+
+    console.log(
+      `[cron] Daily publishing completed - Published: ${stats.draftsPublished}, Studios processed: ${stats.studiosProcessed}, Errors: ${stats.errors.length}`
+    );
   } catch (error) {
     console.error('[cron] ✗ Failed to publish scheduled content:', error);
     stats.errors.push(
