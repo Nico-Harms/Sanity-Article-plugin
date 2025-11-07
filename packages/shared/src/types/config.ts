@@ -17,6 +17,7 @@ export interface PluginConfig {
   detectedFields: DetectedField[]; // NEW - replaces fieldMappings
   notionDatabaseUrl: string;
   notionClientSecret: string;
+  llmProvider: 'mistral' | 'openai' | 'gemini' | 'perplexity';
   llmApiKey: string;
   llmModel: string;
   sanityProjectId: string;

@@ -10,6 +10,7 @@ import {
 } from '@sanity/ui';
 import { useClient } from 'sanity';
 import { useState, useEffect } from 'react';
+import { EditIcon } from '@sanity/icons';
 import type { DraftWithMetadata } from '@sanity-notion-llm/shared';
 import { DraftMetadataCard } from './DraftMetadataCard';
 import { MinimalContentFormatter } from '../common/MinimalContentFormatter';
@@ -67,6 +68,19 @@ export function DraftModal({
   const handleReject = () => {
     onReject?.();
     onClose();
+  };
+
+  const handleOpenInSanity = () => {
+    // Construct the URL to open the document in Sanity Studio
+    // Remove 'drafts.' prefix if present to get the document ID
+    const documentId = draft.sanityDraftId.replace(/^drafts\./, '');
+    const documentType = draft._type;
+    
+    // Navigate to the document in the Desk structure
+    const studioUrl = `/desk/${documentType};${documentId}`;
+    
+    // Open in current window (studio navigation)
+    window.location.href = studioUrl;
   };
 
   if (!isOpen) return null;
@@ -129,20 +143,32 @@ export function DraftModal({
           </Card>
 
           {/* Action Buttons */}
-          <Flex gap={2} justify="flex-end" style={{ marginTop: '8px' }}>
-            {draft.status === 'pending_review' && (
-              <>
-                <Button tone="positive" onClick={handleApprove}>
-                  Approve
-                </Button>
-                <Button tone="critical" onClick={handleReject}>
-                  Reject
-                </Button>
-              </>
-            )}
-            <Button mode="ghost" onClick={onClose}>
-              Close
-            </Button>
+          <Flex gap={2} justify="space-between" style={{ marginTop: '8px' }}>
+            {/* Left side - Edit button */}
+            <Button
+              icon={EditIcon}
+              tone="primary"
+              mode="ghost"
+              onClick={handleOpenInSanity}
+              text="Open in Sanity"
+            />
+
+            {/* Right side - Action buttons */}
+            <Flex gap={2}>
+              {draft.status === 'pending_review' && (
+                <>
+                  <Button tone="positive" onClick={handleApprove}>
+                    Approve
+                  </Button>
+                  <Button tone="critical" onClick={handleReject}>
+                    Reject
+                  </Button>
+                </>
+              )}
+              <Button mode="ghost" onClick={onClose}>
+                Close
+              </Button>
+            </Flex>
           </Flex>
         </Stack>
       </Card>

@@ -27,14 +27,8 @@ const INPUT_FIELDS: Array<{
     label: 'Notion Client Secret',
     type: 'password',
     placeholder: 'secret_...',
-    helper: 'Your Notion integration secret key (starts with "secret_")',
-  },
-  {
-    key: 'llmApiKey',
-    label: 'LLM API Key (Optional)',
-    type: 'password',
-    placeholder: 'sk-... (optional)',
-    helper: 'Your OpenAI or other LLM provider API key - optional for now',
+    helper:
+      'Your Notion integration secret key. You can find it in the Notion Developer Portal.',
   },
   {
     key: 'sanityProjectId',
@@ -51,14 +45,51 @@ const INPUT_FIELDS: Array<{
   },
 ];
 
-const LLM_MODELS = [
-  { value: 'open-mistral-7b', label: 'Open Mistral 7B (Free Tier)' },
-  { value: 'open-mixtral-8x7b', label: 'Open Mixtral 8x7B (Free Tier)' },
-  { value: 'mistral-large-latest', label: 'Mistral Large (Paid)' },
-  { value: 'mistral-medium-latest', label: 'Mistral Medium (Paid)' },
-  { value: 'gpt-4', label: 'GPT-4 (Paid)' },
-  { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo (Paid)' },
+const LLM_PROVIDERS = [
+  {
+    value: 'mistral',
+    label: 'Mistral AI',
+    apiUrl: 'https://console.mistral.ai/',
+  },
+  {
+    value: 'openai',
+    label: 'OpenAI (ChatGPT)',
+    apiUrl: 'https://platform.openai.com/api-keys',
+  },
+  {
+    value: 'gemini',
+    label: 'Google Gemini',
+    apiUrl: 'https://makersuite.google.com/app/apikey',
+  },
+  {
+    value: 'perplexity',
+    label: 'Perplexity AI',
+    apiUrl: 'https://www.perplexity.ai/settings/api',
+  },
 ];
+
+const LLM_MODELS: Record<string, Array<{ value: string; label: string }>> = {
+  mistral: [
+    { value: 'open-mistral-7b', label: 'Mistral 7B (Free)' },
+    { value: 'open-mixtral-8x7b', label: 'Mixtral 8x7B (Free)' },
+    { value: 'mistral-large-latest', label: 'Mistral Large' },
+    { value: 'mistral-medium-latest', label: 'Mistral Medium' },
+  ],
+  openai: [
+    { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' },
+    { value: 'gpt-4', label: 'GPT-4' },
+    { value: 'gpt-3.5-turbo', label: 'GPT-3.5 Turbo' },
+  ],
+  gemini: [
+    { value: 'gemini-pro', label: 'Gemini Pro' },
+    { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
+  ],
+  perplexity: [
+    { value: 'sonar-pro', label: 'Sonar Pro (Recommended)' },
+    { value: 'sonar', label: 'Sonar' },
+    { value: 'sonar-reasoning', label: 'Sonar Reasoning' },
+  ],
+};
 
 const DATASET_OPTIONS = ['production', 'staging', 'development'];
 
@@ -68,6 +99,13 @@ export function ApiConfigSection({
   onTestConnection,
   isTesting,
 }: ApiConfigSectionProps) {
+  // Default to mistral if no provider selected
+  const selectedProvider = config.llmProvider || 'mistral';
+  const availableModels = LLM_MODELS[selectedProvider] || LLM_MODELS.mistral;
+  const selectedProviderInfo = LLM_PROVIDERS.find(
+    (p) => p.value === selectedProvider
+  );
+
   return (
     <Card padding={4} border>
       <Stack space={4}>
@@ -76,8 +114,8 @@ export function ApiConfigSection({
         </Text>
 
         <Text size={1} muted>
-          Configure your Notion API credentials to connect to your database. LLM
-          configuration is optional for now.
+          Configure your Notion and LLM API credentials to enable content
+          generation.
         </Text>
 
         {INPUT_FIELDS.map(({ key, label, helper, placeholder, type }) => (
@@ -101,23 +139,79 @@ export function ApiConfigSection({
 
         <Box>
           <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
+            LLM Provider
+          </Text>
+          <Select
+            value={selectedProvider}
+            onChange={(event) => {
+              const newProvider = event.currentTarget.value;
+              onFieldChange('llmProvider', newProvider);
+              // Reset model to first available for the new provider
+              const firstModel = LLM_MODELS[newProvider]?.[0]?.value;
+              if (firstModel) {
+                onFieldChange('llmModel', firstModel);
+              }
+            }}
+          >
+            {LLM_PROVIDERS.map((provider) => (
+              <option key={provider.value} value={provider.value}>
+                {provider.label}
+              </option>
+            ))}
+          </Select>
+          <Text size={1} muted style={{ marginTop: 4 }}>
+            Select your AI provider.{' '}
+            {selectedProviderInfo && (
+              <>
+                Get API key at:{' '}
+                <a
+                  href={selectedProviderInfo.apiUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {selectedProviderInfo.label}
+                </a>
+              </>
+            )}
+          </Text>
+        </Box>
+
+        <Box>
+          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
+            LLM API Key
+          </Text>
+          <TextInput
+            type="password"
+            placeholder="Enter your API key..."
+            value={config.llmApiKey || ''}
+            onChange={(event) =>
+              onFieldChange('llmApiKey', event.currentTarget.value)
+            }
+          />
+          <Text size={1} muted style={{ marginTop: 4 }}>
+            API key for {selectedProviderInfo?.label}. Keep this secure!
+          </Text>
+        </Box>
+
+        <Box>
+          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
             LLM Model
           </Text>
           <Select
-            value={config.llmModel || 'open-mistral-7b'}
+            value={config.llmModel || availableModels[0]?.value}
             onChange={(event) =>
               onFieldChange('llmModel', event.currentTarget.value)
             }
           >
-            {LLM_MODELS.map((option) => (
+            {availableModels.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
             ))}
           </Select>
           <Text size={1} muted style={{ marginTop: 4 }}>
-            Free tier models have generous limits (1B tokens/month). Paid models
-            have higher quality but cost per request.
+            Choose the model for content generation. Free models (like Mistral
+            7B) have generous limits.
           </Text>
         </Box>
 

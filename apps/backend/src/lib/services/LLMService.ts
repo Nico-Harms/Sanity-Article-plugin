@@ -1,10 +1,10 @@
-import { Mistral } from '@mistralai/mistralai';
 import type {
   NotionPageData,
   SanityDraftData,
   DetectedField,
   PluginConfig,
 } from '@sanity-notion-llm/shared';
+import { LLMProviderFactory, type LLMProvider } from './llm/LLMProviderFactory';
 
 /*===============================================
 |=                 LLMService                   =
@@ -18,7 +18,7 @@ import type {
  *
  * Key Features:
  * - Dynamic Prompt Building: Creates structured prompts based on detected schema fields
- * - Multi-Model Support: Currently supports Mistral AI (extensible to other LLMs)
+ * - Multi-Provider Support: Supports Mistral AI, OpenAI, Google Gemini, and Perplexity AI
  * - Field-Aware Generation: Uses field purposes to generate contextually appropriate content
  * - JSON Response Parsing: Validates and parses LLM responses into structured data
  *
@@ -39,12 +39,14 @@ import type {
  * - Validates all inputs before processing
  */
 export class LLMService {
-  private client: Mistral;
-  private model: string;
+  private provider: LLMProvider;
 
-  constructor(apiKey: string, model: string) {
-    this.client = new Mistral({ apiKey });
-    this.model = model;
+  constructor(provider: string, apiKey: string, model: string) {
+    this.provider = LLMProviderFactory.createProvider(
+      provider as 'mistral' | 'openai' | 'gemini' | 'perplexity',
+      apiKey,
+      model
+    );
   }
 
   /**
@@ -69,7 +71,7 @@ export class LLMService {
         schemaType,
         config
       );
-      const response = await this.callLLM(prompt);
+      const response = await this.provider.generateContent(prompt);
       return this.parseResponse(response, detectedFields);
     } catch (error) {
       console.error('[llm-service] Error generating article:', error);
@@ -142,48 +144,6 @@ Generate the content now:`;
   }
 
   /**
-   * Call the LLM API with the prompt
-   */
-  private async callLLM(prompt: string): Promise<string> {
-    try {
-      const response = await this.client.chat.complete({
-        model: this.model,
-        messages: [
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        maxTokens: 4000, // Increased for longer articles
-      });
-
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('No content received from LLM');
-      }
-
-      // Handle both string and ContentChunk[] types
-      const contentString =
-        typeof content === 'string'
-          ? content
-          : content
-              .map((chunk) => {
-                if (typeof chunk === 'string') return chunk;
-                if ('text' in chunk) return chunk.text;
-                return '';
-              })
-              .join('');
-      return contentString.trim();
-    } catch (error) {
-      console.error('[llm-service] LLM API call failed:', error);
-      throw new Error(
-        `LLM API call failed: ${error instanceof Error ? error.message : 'Unknown error'}`
-      );
-    }
-  }
-
-  /**
    * Parse and validate the LLM response
    */
   private parseResponse(
@@ -208,7 +168,9 @@ Generate the content now:`;
       // Validate required fields
       const enabledFields = detectedFields.filter((field) => field.enabled);
       const missingFields = enabledFields.filter(
-        (field) => !field.isVirtual && !parsed.hasOwnProperty(field.name)
+        (field) =>
+          !field.isVirtual &&
+          !Object.prototype.hasOwnProperty.call(parsed, field.name)
       );
 
       if (missingFields.length > 0) {
@@ -230,6 +192,10 @@ Generate the content now:`;
 /**
  * Factory function to create LLM service instance
  */
-export function createLLMService(apiKey: string, model: string): LLMService {
-  return new LLMService(apiKey, model);
+export function createLLMService(
+  provider: string,
+  apiKey: string,
+  model: string
+): LLMService {
+  return new LLMService(provider, apiKey, model);
 }

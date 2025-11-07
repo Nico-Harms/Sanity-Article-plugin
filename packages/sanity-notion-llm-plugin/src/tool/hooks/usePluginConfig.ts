@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { PluginConfig, SchemaType, DetectedField } from '@sanity-notion-llm/shared';
+import type { PluginConfig, SchemaType } from '@sanity-notion-llm/shared';
 import { ApiClient } from '../../services/apiClient';
 
 export interface PluginConfigState {
@@ -16,6 +16,7 @@ const createDefaultConfig = (studioId: string): PluginConfig => ({
   detectedFields: [],
   notionDatabaseUrl: '',
   notionClientSecret: '',
+  llmProvider: 'mistral',
   llmApiKey: '',
   llmModel: 'open-mistral-7b',
   sanityProjectId: '',

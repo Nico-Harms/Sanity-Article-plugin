@@ -2,11 +2,11 @@ import { definePlugin } from 'sanity';
 import { NotionLLMTool } from './tool/NotionLLMTool';
 
 export const sanityNotionLLMPlugin = definePlugin({
-  name: 'sanity-notion-llm-plugin',
+  name: 'hermes-plugin',
   tools: [
     {
-      name: 'notion-llm',
-      title: 'Notion LLM',
+      name: 'hermes',
+      title: 'Hermes',
       component: NotionLLMTool,
     },
   ],

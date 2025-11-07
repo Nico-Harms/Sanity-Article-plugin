@@ -32,7 +32,7 @@ export function SimpleFieldCard({
       shadow={1}
       tone={field.enabled ? 'primary' : 'default'}
     >
-      <Stack space={3}>
+      <Stack space={4}>
         {/* Header with switch and field info */}
         <Flex align="center" gap={3}>
           <Switch
@@ -40,12 +40,14 @@ export function SimpleFieldCard({
             onChange={(e) => onToggle(e.currentTarget.checked)}
           />
           <Box flex={1}>
-            <Text weight="semibold" size={2}>
-              {field.title || field.name}
-            </Text>
-            <Text size={1} muted>
-              {field.type}
-            </Text>
+            <Stack space={2}>
+              <Text weight="semibold" size={2}>
+                {field.title || field.name}
+              </Text>
+              <Text size={1} muted>
+                {field.type}
+              </Text>
+            </Stack>
           </Box>
         </Flex>
 

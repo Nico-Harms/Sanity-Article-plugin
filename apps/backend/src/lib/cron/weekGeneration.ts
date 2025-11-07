@@ -77,7 +77,8 @@ async function generateDraftForPage(
     };
 
     // Create LLM service and generate article
-    const llmService = createLLMService(llmApiKey, config.llmModel);
+    const llmProvider = config.llmProvider || 'mistral'; // Default to mistral for backward compatibility
+    const llmService = createLLMService(llmProvider, llmApiKey, config.llmModel);
 
     const draft = await llmService.generateArticle(
       notionPageData,

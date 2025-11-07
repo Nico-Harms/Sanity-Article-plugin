@@ -89,7 +89,8 @@ export function SimpleFieldsTabContent({
                 <Box marginTop={1}>
                   <Text size={1} muted>
                     Toggle fields on/off and describe what each should contain.
-                    The LLM will generate content for enabled fields.
+                    The LLM will generate content for enabled fields. Image does
+                    not work yet.
                   </Text>
                 </Box>
               </Box>
