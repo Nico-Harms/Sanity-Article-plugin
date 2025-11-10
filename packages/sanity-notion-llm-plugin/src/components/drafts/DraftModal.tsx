@@ -20,8 +20,6 @@ interface DraftModalProps {
   isOpen: boolean;
   onClose: () => void;
   onApprove?: () => void;
-  onReject?: () => void;
-  studioId: string;
 }
 
 export function DraftModal({
@@ -29,8 +27,6 @@ export function DraftModal({
   isOpen,
   onClose,
   onApprove,
-  onReject,
-  studioId,
 }: DraftModalProps) {
   const [content, setContent] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -44,13 +40,30 @@ export function DraftModal({
         try {
           setLoading(true);
           setError(null);
-          const documentData = await client.getDocument(draft.sanityDraftId);
+
+          let documentData = null;
+          let documentId = draft.sanityDraftId;
+
+          // Smart ID resolution based on status
+          if (draft.status === 'published' && documentId.startsWith('drafts.')) {
+            documentId = documentId.replace(/^drafts\./, '');
+          }
+
+          // Try primary ID
+          try {
+            documentData = await client.getDocument(documentId);
+          } catch (primaryError) {
+            // Fallback: try the alternate ID
+            const fallbackId = documentId.startsWith('drafts.')
+              ? documentId.replace(/^drafts\./, '')
+              : `drafts.${documentId}`;
+            
+            documentData = await client.getDocument(fallbackId);
+          }
+
           setContent(documentData);
         } catch (err) {
-          console.error('Failed to fetch document:', err);
-          setError(
-            err instanceof Error ? err.message : 'Failed to fetch document'
-          );
+          setError(err instanceof Error ? err.message : 'Failed to fetch document');
         } finally {
           setLoading(false);
         }
@@ -58,15 +71,10 @@ export function DraftModal({
 
       fetchContent();
     }
-  }, [isOpen, draft.sanityDraftId, client]);
+  }, [isOpen, draft.sanityDraftId, draft.status, client]);
 
   const handleApprove = () => {
     onApprove?.();
-    onClose();
-  };
-
-  const handleReject = () => {
-    onReject?.();
     onClose();
   };
 
@@ -75,10 +83,10 @@ export function DraftModal({
     // Remove 'drafts.' prefix if present to get the document ID
     const documentId = draft.sanityDraftId.replace(/^drafts\./, '');
     const documentType = draft._type;
-    
+
     // Navigate to the document in the Desk structure
     const studioUrl = `/desk/${documentType};${documentId}`;
-    
+
     // Open in current window (studio navigation)
     window.location.href = studioUrl;
   };
@@ -139,6 +147,12 @@ export function DraftModal({
                   />
                 </Box>
               )}
+
+              {!loading && !error && !content && (
+                <Text size={1} muted>
+                  No content available
+                </Text>
+              )}
             </Stack>
           </Card>
 
@@ -156,14 +170,9 @@ export function DraftModal({
             {/* Right side - Action buttons */}
             <Flex gap={2}>
               {draft.status === 'pending_review' && (
-                <>
-                  <Button tone="positive" onClick={handleApprove}>
-                    Approve
-                  </Button>
-                  <Button tone="critical" onClick={handleReject}>
-                    Reject
-                  </Button>
-                </>
+                <Button tone="positive" onClick={handleApprove}>
+                  Approve
+                </Button>
               )}
               <Button mode="ghost" onClick={onClose}>
                 Close

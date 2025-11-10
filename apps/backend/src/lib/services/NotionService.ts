@@ -129,7 +129,10 @@ const mapNotionPage = (
 export interface NotionClient {
   testConnection(): Promise<{ success: boolean; message: string }>;
   getDatabase(databaseId: string): Promise<NotionDatabase | null>;
-  queryDatabase(databaseId: string, pageSize?: number): Promise<NotionPage[]>;
+  queryDatabase(
+    databaseId: string,
+    options?: { pageSize?: number; fetchContent?: boolean }
+  ): Promise<NotionPage[]>;
   updatePageStatus(
     pageId: string,
     status: string,
@@ -198,8 +201,10 @@ export const createNotionClient = (apiKey: string): NotionClient => {
 
   const queryDatabase = async (
     databaseId: string,
-    pageSize = 100
+    options: { pageSize?: number; fetchContent?: boolean } = {}
   ): Promise<NotionPage[]> => {
+    const { pageSize = 100, fetchContent = false } = options;
+
     try {
       const formattedId = formatDatabaseId(databaseId);
       const response = await client.databases.query({
@@ -211,23 +216,27 @@ export const createNotionClient = (apiKey: string): NotionClient => {
         (page): page is PageObjectResponse => 'properties' in page
       );
 
-      // Always fetch content for each page
-      const pagesWithContent = await Promise.all(
-        pages.map(async (page) => {
-          try {
-            const content = await getPageContent(page.id);
-            return mapNotionPage(page, content);
-          } catch (error) {
-            console.error(
-              `[notion] Failed to get content for page ${page.id}:`,
-              error
-            );
-            return mapNotionPage(page); // Return page without content if content fetch fails
-          }
-        })
-      );
+      // Only fetch content if explicitly requested (for generation, not for lists)
+      if (fetchContent) {
+        const pagesWithContent = await Promise.all(
+          pages.map(async (page) => {
+            try {
+              const content = await getPageContent(page.id);
+              return mapNotionPage(page, content);
+            } catch (error) {
+              console.error(
+                `[notion] Failed to get content for page ${page.id}:`,
+                error
+              );
+              return mapNotionPage(page); // Return page without content if content fetch fails
+            }
+          })
+        );
+        return pagesWithContent;
+      }
 
-      return pagesWithContent;
+      // Return pages with just properties (fast, no rate limiting)
+      return pages.map((page) => mapNotionPage(page));
     } catch (error) {
       console.error('[notion] Failed to query database:', error);
       return [];

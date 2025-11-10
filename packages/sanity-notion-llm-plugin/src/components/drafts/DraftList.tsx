@@ -21,7 +21,6 @@ const STATUS_CONFIG = {
   approved: { label: 'Approved', tone: 'positive' as const },
   scheduled: { label: 'Scheduled', tone: 'primary' as const },
   published: { label: 'Published', tone: 'positive' as const },
-  rejected: { label: 'Rejected', tone: 'critical' as const },
 };
 
 /**
@@ -115,6 +114,7 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
 
   // Filter drafts by week
   const weekRange = getWeekRangeForDate(selectedWeekStart);
+  // Filter drafts to only those in the selected week
   const weekFilteredDrafts = drafts.filter((draft) => {
     if (!draft.plannedPublishDate) {
       return false;
@@ -130,7 +130,7 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
 
   // Filter Notion pages for scheduled section (not yet generated)
   const scheduledNotionPages = notionPages.filter((page) => {
-    // Exclude pages that already have drafts
+    // Exclude pages that already have drafts (pending, approved, or published)
     if (draftedNotionPageIds.has(page.id)) {
       return false;
     }
@@ -144,8 +144,11 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
     return isDateInWeekRange(date, weekRange.start, weekRange.end);
   });
 
-  // Group drafts into sections
-  const awaitingReview = weekFilteredDrafts.filter(
+  /*===============================================
+  =          Group drafts into sections           =
+  ===============================================*/
+
+  const pendingReview = weekFilteredDrafts.filter(
     (draft) => draft.status === 'pending_review'
   );
 
@@ -153,15 +156,14 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
     (draft) => draft.status === 'approved'
   );
 
-  const handleAction = async (
-    action: 'approve' | 'reject',
-    draftId: string
-  ) => {
+  const published = weekFilteredDrafts.filter(
+    (draft) => draft.status === 'published'
+  );
+
+  const handleApprove = async (draftId: string) => {
     try {
       setActionLoading(draftId);
-      await (action === 'approve'
-        ? ApiClient.approveDraft(studioId, draftId)
-        : ApiClient.rejectDraft(studioId, draftId));
+      await ApiClient.approveDraft(studioId, draftId);
 
       const response = await ApiClient.getDrafts(studioId);
       if (response.drafts) setDrafts(response.drafts);
@@ -171,7 +173,7 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
         (window as any).refreshDashboardStats();
       }
     } catch (err) {
-      console.error(`[DraftList] Failed to ${action} draft:`, err);
+      console.error(`[DraftList] Failed to approve draft:`, err);
     } finally {
       setActionLoading(null);
     }
@@ -189,13 +191,7 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
 
   const handleModalApprove = async () => {
     if (selectedDraft) {
-      await handleAction('approve', selectedDraft.sanityDraftId);
-    }
-  };
-
-  const handleModalReject = async () => {
-    if (selectedDraft) {
-      await handleAction('reject', selectedDraft.sanityDraftId);
+      await handleApprove(selectedDraft.sanityDraftId);
     }
   };
 
@@ -229,17 +225,19 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
                   <Text
                     size={1}
                     style={
-                      draft.status === 'approved'
+                      draft.status === 'approved' ||
+                      draft.status === 'published'
                         ? { color: 'var(--sanity-color-positive)' }
                         : { opacity: 0.7 }
                     }
                   >
-                    Scheduled to:{' '}
-                    {draft.status === 'approved'
-                      ? formatMonthAndDate(draft.plannedPublishDate)
-                      : `Planned: ${new Date(
-                          draft.plannedPublishDate
-                        ).toLocaleDateString()}`}
+                    {draft.status === 'published'
+                      ? `Published on: ${formatMonthAndDate(draft.plannedPublishDate)}`
+                      : draft.status === 'approved'
+                        ? `Scheduled to: ${formatMonthAndDate(draft.plannedPublishDate)}`
+                        : `Planned: ${new Date(
+                            draft.plannedPublishDate
+                          ).toLocaleDateString()}`}
                   </Text>
                 )}
               </Stack>
@@ -260,32 +258,18 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
           />
 
           {draft.status === 'pending_review' && (
-            <>
-              <Button
-                text={
-                  actionLoading === draft.sanityDraftId
-                    ? 'Processing...'
-                    : 'Approve'
-                }
-                tone="positive"
-                mode="ghost"
-                size={1}
-                disabled={actionLoading === draft.sanityDraftId}
-                onClick={() => handleAction('approve', draft.sanityDraftId)}
-              />
-              <Button
-                text={
-                  actionLoading === draft.sanityDraftId
-                    ? 'Processing...'
-                    : 'Reject'
-                }
-                tone="critical"
-                mode="ghost"
-                size={1}
-                disabled={actionLoading === draft.sanityDraftId}
-                onClick={() => handleAction('reject', draft.sanityDraftId)}
-              />
-            </>
+            <Button
+              text={
+                actionLoading === draft.sanityDraftId
+                  ? 'Processing...'
+                  : 'Approve'
+              }
+              tone="positive"
+              mode="ghost"
+              size={1}
+              disabled={actionLoading === draft.sanityDraftId}
+              onClick={() => handleApprove(draft.sanityDraftId)}
+            />
           )}
           {draft.status === 'approved' && (
             <Button
@@ -294,20 +278,6 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
               mode="ghost"
               size={1}
             />
-          )}
-          {draft.status === 'published' && (
-            <Button
-              text="View Published"
-              tone="positive"
-              mode="ghost"
-              size={1}
-            />
-          )}
-          {draft.status === 'rejected' && (
-            <>
-              <Button text="Re-generate" tone="primary" mode="ghost" size={1} />
-              <Button text="Delete" tone="critical" mode="ghost" size={1} />
-            </>
           )}
         </Flex>
       </Stack>
@@ -390,19 +360,23 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
   // Check if there's any content to show
   const hasContent =
     scheduledNotionPages.length > 0 ||
-    awaitingReview.length > 0 ||
-    approved.length > 0;
+    pendingReview.length > 0 ||
+    approved.length > 0 ||
+    published.length > 0;
 
   return (
     <Stack space={4}>
       {/* Scheduled (Future) Section - Notion pages not yet generated */}
       {renderScheduledSection()}
 
-      {/* Awaiting Review Section */}
-      {renderSection('Awaiting Review', awaitingReview, 'caution')}
+      {/* Pending Review Section - Drafts awaiting review */}
+      {renderSection('Pending Review', pendingReview, 'caution')}
 
-      {/* Approved Section */}
+      {/* Approved Section - Drafts approved for publishing */}
       {renderSection('Approved', approved, 'positive')}
+
+      {/* Published Section - Successfully published drafts */}
+      {renderSection('Published', published, 'positive')}
 
       {/* Empty State */}
       {!hasContent && (
@@ -418,8 +392,6 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
           isOpen={isModalOpen}
           onClose={handleCloseModal}
           onApprove={handleModalApprove}
-          onReject={handleModalReject}
-          studioId={studioId}
         />
       )}
     </Stack>

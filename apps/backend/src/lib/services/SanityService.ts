@@ -81,6 +81,16 @@ export class SanityService {
     return this.client.fetch(query);
   }
 
+  // Fetch a document by ID (draft or published)
+  async getDocument(documentId: string) {
+    try {
+      return await this.client.getDocument(documentId);
+    } catch (error) {
+      console.warn(`[sanity] Document ${documentId} not found:`, error);
+      return null;
+    }
+  }
+
   // Approve a document - not funcitonal yet
   /*===============================================
   =          NOT WORKING            =
@@ -112,7 +122,8 @@ export class SanityService {
     // Create the published version by removing the drafts. prefix
     const publishedId = documentId.replace('drafts.', '');
 
-    // Create the published document
+    // Create the published document (remove _id to replace it)
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _id, ...draftWithoutId } = draft;
     const publishedDoc = {
       ...draftWithoutId,

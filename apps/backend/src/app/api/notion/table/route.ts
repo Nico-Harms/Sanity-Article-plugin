@@ -47,10 +47,13 @@ export async function GET(request: NextRequest) {
     const decryptedApiKey = decryptSecret(config.notionClientSecret);
     const notionService = createNotionClient(decryptedApiKey);
 
-    // Get database info and pages
+    // Get database info and pages (WITHOUT content for fast loading)
     const [database, pages] = await Promise.all([
       notionService.getDatabase(databaseId),
-      notionService.queryDatabase(databaseId, 100),
+      notionService.queryDatabase(databaseId, {
+        pageSize: 100,
+        fetchContent: false, // Don't fetch content - only need properties for list view
+      }),
     ]);
 
     if (!database) {

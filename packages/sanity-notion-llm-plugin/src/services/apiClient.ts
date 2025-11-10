@@ -141,17 +141,6 @@ export class ApiClient {
     return this.handleResponse(response, 'success');
   }
 
-  static async rejectDraft(studioId: string, documentId: string) {
-    const response = await this.makeRequest<{ success: boolean }>(
-      '/api/drafts/reject',
-      {
-        method: 'POST',
-        body: JSON.stringify({ studioId, documentId }),
-      }
-    );
-    return this.handleResponse(response, 'success');
-  }
-
   static async getSchemaTypes(studioId: string) {
     return this.makeRequest(`/api/schema?studioId=${studioId}`);
   }

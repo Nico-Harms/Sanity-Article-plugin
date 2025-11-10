@@ -24,34 +24,56 @@ export async function GET(request: NextRequest) {
     // Query drafts with metadata
     const draftMetadataService = await getDraftMetadataService();
     const metadataList = await draftMetadataService.findByStudioId(studioId);
-    // Get Sanity drafts
-    const sanityDrafts = await context.sanity.service.queryDrafts({
-      type: context.config.selectedSchema || 'article',
-    });
 
-    // Combine Sanity drafts with metadata
-    const draftsWithMetadata = sanityDrafts.map((draft: any) => {
-      const metadata = metadataList.find((m) => m.sanityDraftId === draft._id);
-      return {
-        _id: draft._id,
-        _type: draft._type,
-        title: draft.title || 'Untitled',
-        status: metadata?.status || 'pending_review',
-        plannedPublishDate: metadata?.plannedPublishDate || '',
-        generatedAt:
-          metadata?.generatedAt?.toISOString() || new Date().toISOString(),
-        approvedAt: metadata?.approvedAt?.toISOString(),
-        publishedAt: metadata?.publishedAt?.toISOString(),
-        notionPageId: metadata?.notionPageId || '',
-        sanityDraftId: draft._id,
-        studioId: studioId,
-      };
-    });
+    // Fetch Sanity documents for each metadata entry (both drafts and published)
+    const draftsWithMetadata = await Promise.all(
+      metadataList.map(async (metadata) => {
+        try {
+          // Try to fetch the document (could be draft or published)
+          const docId = metadata.sanityDraftId;
+          let document = await context.sanity.service.getDocument(docId);
 
-    return createCorsResponse(
-      { success: true, drafts: draftsWithMetadata },
-      200
+          // If not found as draft, try without the 'drafts.' prefix (published document)
+          if (!document && docId.startsWith('drafts.')) {
+            const publishedId = docId.replace(/^drafts\./, '');
+            document = await context.sanity.service.getDocument(publishedId);
+          }
+
+          if (!document) {
+            console.warn(
+              `[drafts-api] Document not found for ${docId}, skipping`
+            );
+            return null;
+          }
+
+          return {
+            _id: document._id,
+            _type: document._type,
+            title: document.title || 'Untitled',
+            status: metadata.status,
+            plannedPublishDate: metadata.plannedPublishDate || '',
+            generatedAt:
+              metadata.generatedAt?.toISOString() || new Date().toISOString(),
+            approvedAt: metadata.approvedAt?.toISOString(),
+            publishedAt: metadata.publishedAt?.toISOString(),
+            notionPageId: metadata.notionPageId || '',
+            sanityDraftId: metadata.sanityDraftId,
+            studioId: studioId,
+          };
+        } catch (error) {
+          console.warn(
+            `[drafts-api] Failed to fetch document ${metadata.sanityDraftId}:`,
+            error
+          );
+          return null;
+        }
+      })
     );
+
+    // Filter out null entries (documents that couldn't be found)
+    const validDrafts = draftsWithMetadata.filter((draft) => draft !== null);
+
+    return createCorsResponse({ success: true, drafts: validDrafts }, 200);
   } catch (error) {
     console.error('[drafts-api] Failed to fetch drafts:', error);
     return createCorsResponse(

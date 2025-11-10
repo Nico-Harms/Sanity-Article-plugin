@@ -19,7 +19,6 @@ const STAT_ITEMS: StatItem[] = [
   { label: 'Pending Review', key: 'pending', tone: 'caution' },
   { label: 'Approved', key: 'approved', tone: 'positive' },
   { label: 'Published', key: 'published', tone: 'positive' },
-  { label: 'Rejected', key: 'rejected', tone: 'critical' },
 ];
 
 export function DashboardStats({ studioId }: DashboardStatsProps) {
@@ -28,7 +27,6 @@ export function DashboardStats({ studioId }: DashboardStatsProps) {
     pending: 0,
     approved: 0,
     published: 0,
-    rejected: 0,
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -82,8 +80,8 @@ export function DashboardStats({ studioId }: DashboardStatsProps) {
   return (
     <Box>
       {/* Stats Grid */}
-      <Grid columns={[1, 2, 5]} gap={3}>
-        {STAT_ITEMS.map(({ label, key, tone }) => {
+      <Grid columns={[1, 2, 4]} gap={3}>
+        {STAT_ITEMS.map(({ label, key }) => {
           return (
             <Card
               key={label}

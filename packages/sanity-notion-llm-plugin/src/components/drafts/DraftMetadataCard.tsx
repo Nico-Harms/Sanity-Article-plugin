@@ -17,23 +17,11 @@ const STATUS_CONFIG = {
     message: 'This draft has been approved and is ready for publishing.',
     icon: '✅',
   },
-  scheduled: {
-    label: 'Scheduled',
-    tone: 'primary' as const,
-    message: 'This draft is scheduled to be published automatically.',
-    icon: '📅',
-  },
   published: {
     label: 'Published',
     tone: 'positive' as const,
     message: 'This draft has been published successfully.',
     icon: '✨',
-  },
-  rejected: {
-    label: 'Rejected',
-    tone: 'critical' as const,
-    message: 'This draft has been rejected and needs revision.',
-    icon: '❌',
   },
 };
 

@@ -183,9 +183,10 @@ export async function generateWeekContent(): Promise<WeekGenerationResult> {
         const notionService = createNotionClient(notionClientSecret);
 
         // Query Notion database (notionDatabaseUrl contains the database ID)
+        // Don't fetch content here - we'll fetch it individually for eligible pages only
         const notionPages = await notionService.queryDatabase(
           config.notionDatabaseUrl,
-          100
+          { pageSize: 100, fetchContent: false }
         );
 
         // Filter pages by date range and check if draft already exists

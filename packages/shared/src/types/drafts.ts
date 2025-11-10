@@ -1,9 +1,4 @@
-export type DraftStatus =
-  | 'pending_review'
-  | 'approved'
-  | 'scheduled'
-  | 'published'
-  | 'rejected';
+export type DraftStatus = 'pending_review' | 'approved' | 'published';
 
 export interface DraftWithMetadata {
   _id: string;
@@ -24,7 +19,6 @@ export interface DraftStats {
   pending: number;
   approved: number;
   published: number;
-  rejected: number;
 }
 
 export interface DraftMetadata {
@@ -38,6 +32,5 @@ export interface DraftMetadata {
   generatedAt: Date;
   approvedAt?: Date;
   publishedAt?: Date;
-  rejectedAt?: Date;
   errorMessage?: string;
 }
