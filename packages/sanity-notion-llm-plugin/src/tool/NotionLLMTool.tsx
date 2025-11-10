@@ -120,7 +120,7 @@ export function NotionLLMTool() {
       <Stack space={4}>
         <Box>
           <Text size={3} weight="bold">
-            Hermes automation content generator
+            Hermés Content Manager
           </Text>
           {state.error && <Text size={1}>{state.error}</Text>}
         </Box>

@@ -1,8 +1,10 @@
 import {
   getActiveConfigs,
   createSanityContextFromConfig,
+  decryptSecret,
 } from '@/lib/services';
 import { getDraftMetadataService } from '@/lib/database/draftMetadata';
+import { updateNotionStatusSafely } from '@/lib/services/NotionService';
 
 /*===============================================
 |=          Daily Publishing Task          =
@@ -70,6 +72,17 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
               draft.sanityDraftId,
               'published'
             );
+
+            // Update Notion page status to "Published" (best-effort)
+            if (draft.notionPageId && config.notionClientSecret) {
+              const notionClientSecret = decryptSecret(config.notionClientSecret);
+              await updateNotionStatusSafely(
+                draft.notionPageId,
+                'Published',
+                notionClientSecret
+              );
+            }
+
             stats.draftsPublished++;
           } catch (error) {
             const errorMessage =

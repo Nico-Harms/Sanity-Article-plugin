@@ -436,3 +436,32 @@ export function extractSubjectFromProperties(
 
   return 'Untitled';
 }
+
+/**
+ * Update Notion page status safely (best-effort)
+ *
+ * This function attempts to update a Notion page's status field but does not throw errors.
+ * It's designed for best-effort status updates that shouldn't block main workflows.
+ *
+ * @param notionPageId - The Notion page ID to update
+ * @param status - The status value to set (e.g., "In progress", "Ready to publish", "Published")
+ * @param notionClientSecret - The Notion API key (encrypted)
+ * @param propertyName - The name of the status property (defaults to "Status")
+ */
+export async function updateNotionStatusSafely(
+  notionPageId: string,
+  status: string,
+  notionClientSecret: string,
+  propertyName: string = NOTION_DEFAULTS.STATUS_PROPERTY
+): Promise<void> {
+  try {
+    const notionClient = createNotionClient(notionClientSecret);
+    await notionClient.updatePageStatus(notionPageId, status, propertyName);
+    console.log(`[notion-status] Updated page ${notionPageId} to "${status}"`);
+  } catch (error) {
+    console.error(
+      `[notion-status] Failed to update page ${notionPageId} to "${status}":`,
+      error
+    );
+  }
+}

@@ -6,7 +6,7 @@ export const sanityNotionLLMPlugin = definePlugin({
   tools: [
     {
       name: 'hermes',
-      title: 'Hermes',
+      title: 'Hermes Content',
       component: NotionLLMTool,
     },
   ],

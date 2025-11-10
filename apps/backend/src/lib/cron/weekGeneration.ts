@@ -13,6 +13,7 @@ import {
   decryptSecret,
   extractSubjectFromProperties,
 } from '@/lib/services';
+import { updateNotionStatusSafely } from '@/lib/services/NotionService';
 import { getDraftMetadataService } from '@/lib/database/draftMetadata';
 import {
   getCurrentWeekRange,
@@ -128,6 +129,13 @@ async function generateDraftForPage(
           plannedDate || new Date().toISOString().split('T')[0],
         generatedAt: new Date(),
       });
+
+      // Update Notion page status to "In progress" (best-effort)
+      await updateNotionStatusSafely(
+        notionPageId,
+        'In progress',
+        notionClientSecret
+      );
     }
 
     return { success: true };

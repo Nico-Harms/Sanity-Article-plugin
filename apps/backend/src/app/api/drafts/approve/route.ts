@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
-import { loadStudioContext } from '@/lib/services';
+import { loadStudioContext, decryptSecret } from '@/lib/services';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
 import { getDraftMetadataService } from '@/lib/database/draftMetadata';
+import { updateNotionStatusSafely } from '@/lib/services/NotionService';
 
 /*===============================================
 =          Approve Draft API Route          =
@@ -42,6 +43,17 @@ export async function POST(request: NextRequest) {
     // Update metadata status
     const draftMetadataService = await getDraftMetadataService();
     await draftMetadataService.updateStatus(documentId, 'approved');
+
+    // Get Notion page ID from metadata and update status to "Ready to publish" (best-effort)
+    const metadata = await draftMetadataService.findBySanityDraftId(documentId);
+    if (metadata?.notionPageId && context.config.notionClientSecret) {
+      const notionClientSecret = decryptSecret(context.config.notionClientSecret);
+      await updateNotionStatusSafely(
+        metadata.notionPageId,
+        'Ready to publish',
+        notionClientSecret
+      );
+    }
 
     return createCorsResponse({ success: true }, 200);
   } catch (error) {

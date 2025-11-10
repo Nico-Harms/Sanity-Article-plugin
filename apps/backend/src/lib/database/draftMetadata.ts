@@ -115,6 +115,12 @@ export class DraftMetadataService {
     return this.collection.findOne({ studioId, notionPageId });
   }
 
+  async findBySanityDraftId(
+    sanityDraftId: string
+  ): Promise<DraftMetadata | null> {
+    return this.collection.findOne({ sanityDraftId });
+  }
+
   async getStats(studioId: string) {
     const pipeline = [
       { $match: { studioId } },
