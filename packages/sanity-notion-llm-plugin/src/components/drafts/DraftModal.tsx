@@ -45,7 +45,10 @@ export function DraftModal({
           let documentId = draft.sanityDraftId;
 
           // Smart ID resolution based on status
-          if (draft.status === 'published' && documentId.startsWith('drafts.')) {
+          if (
+            draft.status === 'published' &&
+            documentId.startsWith('drafts.')
+          ) {
             documentId = documentId.replace(/^drafts\./, '');
           }
 
@@ -57,13 +60,15 @@ export function DraftModal({
             const fallbackId = documentId.startsWith('drafts.')
               ? documentId.replace(/^drafts\./, '')
               : `drafts.${documentId}`;
-            
+
             documentData = await client.getDocument(fallbackId);
           }
 
           setContent(documentData);
         } catch (err) {
-          setError(err instanceof Error ? err.message : 'Failed to fetch document');
+          setError(
+            err instanceof Error ? err.message : 'Failed to fetch document'
+          );
         } finally {
           setLoading(false);
         }
