@@ -1,6 +1,6 @@
-# Sanity Notion LLM Plugin
+# Hermés - Sanity Notion LLM Plugin
 
-A production-ready, multi-tenant Sanity plugin that connects Notion tables with LLM to automatically generate article drafts. Features clean service layer architecture, MongoDB persistence, and automated content generation scheduling.
+A production-ready, multi-tenant Sanity plugin that bridges Notion content planning with AI-powered article generation. Supports multiple LLM providers (OpenAI, Mistral, Gemini, Perplexity), features intelligent Notion sync, and provides complete content automation from planning to publishing.
 
 ## Project Structure
 
@@ -19,16 +19,18 @@ A production-ready, multi-tenant Sanity plugin that connects Notion tables with 
 
 ## Current Status
 
+✅ **Multi-LLM Support**: OpenAI, Mistral, Gemini, and Perplexity with dynamic model selection  
 ✅ **Backend**: Clean service layer with comprehensive documentation and error handling  
 ✅ **Studio**: Dynamic schema detection with LLM-aware field mapping  
 ✅ **Frontend**: Blog displaying Sanity content  
 ✅ **Plugin**: Multi-tenant configuration with modular component architecture  
 ✅ **Database**: MongoDB Atlas with encrypted API keys and draft metadata tracking  
-✅ **LLM Integration**: Generates drafts from Notion content with field-aware prompts  
-✅ **Draft Management**: Complete status tracking system with MongoDB metadata  
-✅ **General Tab**: Dashboard statistics and comprehensive draft list interface  
+✅ **Notion Sync**: Bidirectional status updates (In progress → Approved → Published)  
+✅ **Draft Management**: Complete lifecycle tracking with intelligent status display  
+✅ **General Tab**: Dashboard statistics with published article handling  
 ✅ **Schema Detection**: Automatically detects Sanity schema fields and types  
-✅ **Code Quality**: Comprehensive cleanup with detailed documentation  
+✅ **Dynamic Content Preview**: Structure-based formatting for any Sanity schema  
+✅ **Automated Publishing**: Cron-based content generation and publishing workflow  
 ✅ **Complete**: Full content automation pipeline from Notion → LLM → Sanity
 
 ## Architecture Overview
@@ -43,24 +45,27 @@ A production-ready, multi-tenant Sanity plugin that connects Notion tables with 
 
 ### Content Flow
 
-1. **Generation**: Create drafts from Notion content using LLM
-2. **Review Period**: Editors review drafts in Studio General tab, approve or reject
-3. **Status Tracking**: MongoDB tracks draft status (pending_review → approved → published)
-4. **Publish Date**: Cron publishes approved drafts when date matches
-5. **Notion Sync**: Status updated to "Published" after successful publish
+1. **Notion Planning**: Content managers create articles with "Waiting to generate" status in Notion
+2. **Monday Generation**: Automated cron generates drafts for the week → Notion status: "In progress"
+3. **Editorial Review**: Editors review drafts in Studio General tab with structure-based content preview
+4. **Approval**: Approved drafts ready for publishing → Notion status: "Approved"
+5. **Automated Publishing**: Daily cron publishes approved drafts on scheduled date → Notion status: "Published"
+6. **Status Sync**: Full lifecycle tracked in MongoDB with bidirectional Notion status updates
 
 ### Key Features
 
 - 🔐 **Secure**: API keys encrypted in MongoDB, decrypted server-side
 - 🏢 **Multi-Tenant**: Each Studio can have separate Notion/LLM/Sanity configurations
-- 🔄 **Automated**: Two-phase scheduling (generate week ahead, publish on date)
+- 🤖 **Multi-LLM**: Support for OpenAI (GPT-4), Mistral, Google Gemini, and Perplexity
+- 🔄 **Automated**: Two-phase scheduling (Monday generation, daily publishing)
 - 🎯 **Dynamic**: Auto-detects Sanity schemas and field types with LLM-aware mapping
 - 📊 **Persistent**: Configuration saved to MongoDB, not localStorage
-- 🤖 **LLM Integration**: Mistral API for intelligent content generation with field purposes
+- 🔗 **Notion Sync**: Bidirectional status updates throughout content lifecycle
 - ✨ **Auto-Save**: Field mappings automatically save on changes
 - 🧩 **Modular**: Clean component architecture with comprehensive documentation
-- 📝 **Draft Management**: Complete status tracking with MongoDB metadata
-- 📈 **Dashboard**: Real-time statistics and draft overview in General tab
+- 📝 **Draft Management**: Complete lifecycle tracking (Pending → Approved → Published)
+- 📈 **Dashboard**: Real-time statistics with intelligent status display
+- 🎨 **Smart Preview**: Structure-based content formatting for any schema
 - 📚 **Well-Documented**: Comprehensive documentation for all services and components
 
 ## Quick Start
@@ -158,12 +163,13 @@ npm run dev
 ### 1. Configure API Settings
 
 1. Open Sanity Studio
-2. Navigate to "Notion LLM" tool
+2. Navigate to "Hermés" tool
 3. Go to "Settings" tab
 4. Enter your Notion Database ID and Client Secret
-5. Enter your LLM API Key (Mistral) and select model
-6. Enter your Sanity Project ID, API Token, and Dataset
-7. Click "Save Configuration" then "Test Connection"
+5. Select your LLM Provider (OpenAI, Mistral, Gemini, or Perplexity)
+6. Enter your LLM API Key and select model from available options
+7. Enter your Sanity Project ID, API Token, and Dataset
+8. Click "Save Configuration" then "Test Connection"
 
 ### 2. Configure Field Mapping
 
@@ -185,11 +191,12 @@ npm run dev
 ### 4. Review and Approve Drafts
 
 1. Go to "General" tab (first tab)
-2. View dashboard statistics and draft list
-3. Filter drafts by status using the dropdown
-4. Click "Approve" to mark for publishing on scheduled date
-5. Click "Reject" to remove from publishing queue
-6. View status badges and planned publish dates
+2. View dashboard statistics showing all draft statuses
+3. Filter drafts by status: Pending Review, Approved, Published
+4. Click on a draft to preview content with smart structure-based formatting
+5. Click "Approve" to mark for publishing on scheduled date → Notion status: "Approved"
+6. View "Open in Sanity" button to edit drafts directly in Sanity Studio
+7. Published articles remain visible with "Published on: [date]" label
 
 ## Database Schema
 
@@ -199,6 +206,7 @@ npm run dev
   - `studioId` (string, unique)
   - `notionDatabaseUrl` (string)
   - `notionClientSecret` (string, encrypted)
+  - `llmProvider` (string: openai|mistral|gemini|perplexity)
   - `llmApiKey` (string, encrypted)
   - `llmModel` (string)
   - `sanityProjectId` (string, encrypted)
@@ -206,40 +214,49 @@ npm run dev
   - `sanityDataset` (string)
   - `selectedSchema` (string)
   - `fieldMappings` (array)
+  - `systemInstructions` (string, optional)
   - `isActive` (boolean)
 
 - **`draft_metadata`**: Draft status tracking
   - `notionPageId` (string)
   - `sanityDraftId` (string)
+  - `sanityPublishedId` (string, optional - set after publishing)
   - `sanityDocumentType` (string)
   - `studioId` (string)
-  - `status` (string: pending_review|approved|published|rejected)
+  - `status` (string: pending_review|approved|published)
   - `plannedPublishDate` (string)
   - `generatedAt` (Date)
   - `approvedAt` (Date, optional)
   - `publishedAt` (Date, optional)
-  - `rejectedAt` (Date, optional)
+  - `lastSyncedAt` (Date, optional)
+  - `syncStatus` (string, optional)
 
 ## Tech Stack
 
 - **Backend**: Next.js 15 (App Router), TypeScript, MongoDB
-- **Studio**: Sanity v3, React, @sanity/ui
+- **Studio**: Sanity v3, React, @sanity/ui, @portabletext/react
 - **Frontend**: Next.js 15, React, Tailwind CSS v4
-- **Database**: MongoDB Atlas
-- **APIs**: Notion API, Sanity API, Mistral API
+- **Database**: MongoDB Atlas with encrypted storage
+- **APIs**: Notion API, Sanity API
+- **LLM Providers**: OpenAI GPT-4, Mistral AI, Google Gemini, Perplexity
 - **Encryption**: AES-256-GCM for API key security
-- **Scheduling**: Vercel Cron Jobs
+- **Scheduling**: Vercel Cron Jobs (Monday generation, daily publishing)
 
 ## Service Layer Architecture
 
 ### Backend Services (`apps/backend/src/lib/services/`)
 
 - **`ConfigService`**: Multi-tenant configuration management with encrypted API keys
-- **`NotionService`**: Notion API integration and content extraction utilities
-- **`LLMService`**: Mistral API integration with field-aware prompt engineering
-- **`SanityService`**: Sanity CMS document creation and approval workflow
-- **`SchemaService`**: Dynamic Sanity schema detection and content conversion
+- **`NotionService`**: Notion API integration, content extraction, and status synchronization
+- **`LLMService`**: Multi-provider orchestration with factory pattern
+  - `OpenAIProvider`: GPT-4 and GPT-3.5-turbo support
+  - `MistralProvider`: Mistral Large and Small models
+  - `GeminiProvider`: Google Gemini Pro and Flash
+  - `PerplexityProvider`: Perplexity Sonar models
+- **`SanityService`**: Document creation, draft approval, and publishing workflow
+- **`SchemaService`**: Dynamic schema detection and content conversion
 - **`EncryptionService`**: AES-256-GCM API key encryption/decryption
+- **`DraftMetadataService`**: Draft lifecycle tracking and status management
 
 ### Database Layer (`apps/backend/src/lib/database/`)
 
@@ -254,14 +271,16 @@ npm run dev
 
 ### Plugin Components (`packages/sanity-notion-llm-plugin/src/components/`)
 
-- **`GeneralTabContent`**: Dashboard statistics and draft management overview
-- **`DashboardStats`**: Real-time statistics display with status counts
-- **`DraftList`**: Comprehensive draft list with filtering and actions
+- **`GeneralTabContent`**: Dashboard overview with statistics and draft management
+- **`DashboardStats`**: Real-time statistics display with status breakdown
+- **`DraftList`**: Comprehensive draft list with status filtering and actions
+- **`DraftModal`**: Full-featured draft preview with content display
+- **`MinimalContentFormatter`**: Structure-based content renderer for any Sanity schema
 - **`FieldsTabContent`**: Dynamic schema selection and field configuration
 - **`SettingsTabContent`**: API configuration and connection testing
 - **`GenerateTabContent`**: Content generation interface
 - **`SimpleFieldCard`**: Individual field toggle and purpose input
-- **`ApiConfigSection`**: API credentials input form
+- **`ApiConfigSection`**: Multi-provider LLM configuration with model selection
 - **`TabbedInterface`**: Main plugin navigation
 
 ## Security Features
@@ -367,46 +386,100 @@ curl -H "Authorization: Bearer your-cron-secret" \
 
 ## Recent Updates
 
-### Draft Management System (Latest)
+### Structure-Based Content Preview (Latest)
 
-- ✅ **General Tab**: New overview tab with dashboard statistics and draft list
-- ✅ **Status Tracking**: MongoDB metadata collection for draft status management
-- ✅ **Dashboard Stats**: Real-time statistics display with status counts
-- ✅ **Draft List**: Comprehensive draft management with filtering and actions
-- ✅ **UI Improvements**: Better spacing and visual hierarchy using Sanity UI
-- ✅ **Watch Mode**: Development workflow with automatic rebuilding
+- ✅ **Smart Content Formatter**: Structure-based detection instead of string checking
+- ✅ **Universal Schema Support**: Works with any Sanity schema without configuration
+- ✅ **Portable Text Detection**: Automatically identifies and renders rich text
+- ✅ **Object Array Handling**: Detects and displays modules, components, sections
+- ✅ **Date Recognition**: Pattern-based date detection with formatting
+- ✅ **Clean Preview**: Removed all debug console logs
 
-### Code Cleanup & Documentation
+### Multi-LLM Provider Support
 
-- ✅ **Removed unused imports** and dead code throughout the codebase
-- ✅ **Cleaned up debug logs** while keeping essential error logging
-- ✅ **Added comprehensive documentation** to all service files
-- ✅ **Updated component documentation** with detailed usage information
-- ✅ **Improved README** with current architecture and features
-- ✅ **Enhanced code quality** with better comments and structure
+- ✅ **OpenAI Integration**: GPT-4 and GPT-3.5-turbo models
+- ✅ **Mistral Integration**: Mistral Large and Small models
+- ✅ **Google Gemini**: Gemini Pro and Flash models
+- ✅ **Perplexity**: Sonar models with web search capabilities
+- ✅ **Factory Pattern**: Clean provider architecture with auto-detection
+- ✅ **Dynamic UI**: Provider selection updates available models
 
-### LLM-Aware Dynamic Field Mapping
+### Notion Status Synchronization
 
-- ✅ **Dynamic Schema Detection**: Automatically detects Sanity schema fields
-- ✅ **Field-Aware Generation**: LLM uses field purposes for better content
-- ✅ **Simplified Configuration**: No more manual field mapping required
-- ✅ **Auto-save**: Field configurations save automatically
+- ✅ **Three-Phase Workflow**: Waiting to generate → In progress → Approved → Published
+- ✅ **Bidirectional Sync**: Updates flow from Sanity back to Notion
+- ✅ **Status Tracking**: Full lifecycle tracking in MongoDB
+- ✅ **Published Handling**: Published articles remain visible with proper labels
+- ✅ **Week Filtering**: Intelligent date filtering for scheduled vs. published content
+
+### Draft Management Enhancements
+
+- ✅ **General Tab**: Dashboard overview with real-time statistics
+- ✅ **Status Filtering**: Filter by Pending Review, Approved, Published
+- ✅ **Draft Preview**: Full content preview with structure-based formatting
+- ✅ **Open in Sanity**: Direct links to edit drafts in Sanity Studio
+- ✅ **Removed Reject**: Streamlined workflow without rejection flow
+
+## Structure-Based Content Preview
+
+The plugin includes an intelligent content formatter (`MinimalContentFormatter`) that automatically adapts to any Sanity schema without configuration:
+
+### How It Works
+
+- **Type Detection**: Analyzes JavaScript types (string, number, array, object)
+- **Structure Recognition**: Identifies patterns like Portable Text blocks, object arrays, dates
+- **Universal Rendering**: Works with any field names (no hardcoded checks for "slug", "modules", etc.)
+
+### Supported Content Types
+
+1. **Portable Text**: Automatically detects and renders rich text with `_type: 'block'`
+2. **Structured Objects**: Arrays of objects (modules, components, sections) rendered as cards
+3. **Dates**: Pattern-based detection (YYYY-MM-DD, MM/DD/YYYY) with formatting
+4. **Simple Arrays**: Bulleted lists for primitive values
+5. **Objects**: Inline display for small objects, cards for larger structures
+6. **Primitives**: Strings, numbers, booleans displayed appropriately
+
+### Detection Logic Examples
+
+```typescript
+// Portable Text Detection
+const isPortableText = (value: any) => {
+  return (
+    Array.isArray(value) &&
+    value.some((item) => ['block', 'image', 'code'].includes(item._type))
+  );
+};
+
+// Structured Object Array Detection
+const isStructuredObjectArray = (value: any) => {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === 'object')
+  );
+};
+
+// Date Pattern Detection
+const looksLikeDate = (value: string) => {
+  return /^\d{4}-\d{2}-\d{2}/.test(value) || /T\d{2}:\d{2}:\d{2}/.test(value);
+};
+```
+
+This approach ensures the preview works with **any** Sanity schema, making the plugin truly reusable!
 
 ## What's Next
 
 ### Phase 2: Advanced Features
 
-- [ ] Content scheduling based on Notion dates
-- [ ] Batch processing
-- [ ] Content templates
-- [ ] Analytics and monitoring
+- [ ] Batch content generation
+- [ ] Content templates with variables
+- [ ] Analytics and monitoring dashboard
+- [ ] Advanced LLM prompt customization
 
 ### Phase 3: Production Features
 
-- [ ] Rate limiting
-- [ ] Caching
-- [ ] Monitoring and alerts
-- [ ] Performance optimization
+- [ ] Rate limiting and quota management
+- [ ] Caching for improved performance
+- [ ] Monitoring and alerts for failed generations
+- [ ] Performance optimization for large datasets
 
 ## Contributing
 

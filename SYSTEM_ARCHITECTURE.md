@@ -1,4 +1,4 @@
-# 🏗️ System Architecture & File Structure
+# 🏗️ Hermés - System Architecture & File Structure
 
 ## 📁 Complete File Structure Overview
 
@@ -100,11 +100,12 @@ Sanity-Article-plugin/
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   📝 Notion     │    │   🤖 LLM        │    │   📰 Sanity     │
-│   Database      │───▶│   (Mistral)     │───▶│   CMS           │
-│                 │    │                 │    │                 │
-│ • Content Plan  │    │ • Generate      │    │ • Draft Review  │
-│ • Scheduled     │    │   Articles      │    │ • Approval      │
-│   Dates         │    │ • JSON Output   │    │ • Publishing    │
+│   Database      │───▶│   Multi-Provider│───▶│   CMS           │
+│                 │◀───│                 │    │                 │
+│ • Content Plan  │    │ • OpenAI GPT-4  │    │ • Draft Review  │
+│ • Scheduled     │    │ • Mistral       │    │ • Approval      │
+│   Dates         │    │ • Gemini        │    │ • Publishing    │
+│ • Status Sync   │    │ • Perplexity    │    │ • Open in Studio│
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          │                       │                       │
@@ -112,18 +113,22 @@ Sanity-Article-plugin/
 ┌─────────────────────────────────────────────────────────────────┐
 │                    🔧 Backend API Server                        │
 │                                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
-│  │ Notion      │  │ LLM         │  │ Sanity      │             │
-│  │ Service     │  │ Service     │  │ Service     │             │
-│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│  ┌─────────────┐  ┌──────────────────┐  ┌─────────────┐        │
+│  │ Notion      │  │ LLM Service      │  │ Sanity      │        │
+│  │ Service     │  │ • Factory Pattern│  │ Service     │        │
+│  │ • Fetch     │  │ • OpenAI         │  │ • Create    │        │
+│  │ • Status    │  │ • Mistral        │  │ • Approve   │        │
+│  │   Update    │  │ • Gemini         │  │ • Publish   │        │
+│  └─────────────┘  │ • Perplexity     │  └─────────────┘        │
+│                   └──────────────────┘                          │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────────┐ │
 │  │              📊 MongoDB Database                            │ │
 │  │                                                             │ │
 │  │ • Encrypted API Keys (Notion, LLM, Sanity)                 │ │
-│  │ • Plugin Configurations (per Studio)                       │ │
-│  │ • Draft Metadata (status tracking)                         │ │
-│  │ • Generation History                                       │ │
+│  │ • Plugin Configurations (per Studio, multi-tenant)         │ │
+│  │ • Draft Metadata (lifecycle tracking)                      │ │
+│  │ • LLM Provider & Model Selection                           │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                                 │
@@ -143,6 +148,8 @@ Sanity-Article-plugin/
 │                   │ • Draft Management List                  │   │
 │                   │ • Status Tracking & Actions              │   │
 │                   │ • Filter by Status                       │   │
+│                   │ • Structure-Based Content Preview        │   │
+│                   │ • Open in Sanity Studio                  │   │
 │                   └─────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -163,9 +170,11 @@ Sanity-Article-plugin/
 - **Key Components**:
   - `NotionLLMTool.tsx`: Main plugin entry point with tabbed interface
   - `GeneralTabContent.tsx`: Dashboard overview with statistics and draft list
-  - `DashboardStats.tsx`: Real-time statistics display
-  - `DraftList.tsx`: Comprehensive draft management interface
-  - `ApiConfigSection.tsx`: API credentials configuration form
+  - `DashboardStats.tsx`: Real-time statistics display with status breakdown
+  - `DraftList.tsx`: Comprehensive draft management with status filtering
+  - `DraftModal.tsx`: Full-featured draft preview with content display
+  - `MinimalContentFormatter.tsx`: Structure-based content renderer (universal schema support)
+  - `ApiConfigSection.tsx`: Multi-provider LLM configuration with model selection
   - `SimpleFieldsTabContent.tsx`: Schema field mapping configuration
   - `apiClient.ts`: HTTP client for backend communication
 
@@ -173,12 +182,17 @@ Sanity-Article-plugin/
 
 - **Purpose**: API server handling all external integrations
 - **Key Services**:
-  - `ConfigService.ts`: MongoDB configuration management
-  - `NotionService.ts`: Notion API integration and content extraction
-  - `LLMService.ts`: Mistral API integration for content generation
-  - `SanityService.ts`: Sanity CMS document creation and management
+  - `ConfigService.ts`: MongoDB configuration management with multi-tenant support
+  - `NotionService.ts`: Notion API integration, content extraction, and status synchronization
+  - `LLMService.ts`: Multi-provider orchestration with factory pattern
+    - `providers/OpenAIProvider.ts`: OpenAI GPT-4 and GPT-3.5-turbo
+    - `providers/MistralProvider.ts`: Mistral Large and Small models
+    - `providers/GeminiProvider.ts`: Google Gemini Pro and Flash
+    - `providers/PerplexityProvider.ts`: Perplexity Sonar models
+  - `SanityService.ts`: Document creation, approval, and publishing workflow
+  - `SchemaService.ts`: Dynamic schema detection and content conversion
   - `EncryptionService.ts`: AES-256-GCM API key encryption
-  - `DraftMetadataService.ts`: Draft status tracking and management
+  - `DraftMetadataService.ts`: Draft lifecycle tracking and status management
 
 ### 🎨 **Studio Package** (`apps/studio/`)
 
@@ -189,13 +203,14 @@ Sanity-Article-plugin/
 
 ## 🔄 **Content Generation Flow**
 
-1. **📝 Notion Planning**: Content creators plan articles in Notion database
-2. **⚙️ Configuration**: Studio admins configure API keys and field mappings
-3. **🤖 Generation**: LLM generates content from Notion data
-4. **📰 Draft Creation**: Content saved as drafts in Sanity CMS with metadata tracking
-5. **👀 Review**: Editors review drafts in General tab with dashboard statistics
-6. **✅ Approval**: Approved drafts tracked in MongoDB with status updates
-7. **📅 Publishing**: Cron job publishes approved content on scheduled dates
+1. **📝 Notion Planning**: Content managers create articles with "Waiting to generate" status
+2. **⚙️ Configuration**: Studio admins configure API keys, select LLM provider, and set up field mappings
+3. **🗓️ Monday Generation**: Automated cron generates drafts for the week → Notion status: "In progress"
+4. **📰 Draft Creation**: Content saved as drafts in Sanity CMS with MongoDB metadata tracking
+5. **👀 Review**: Editors review drafts in General tab with structure-based content preview
+6. **✅ Approval**: Approved drafts ready for publishing → Notion status: "Approved"
+7. **📅 Publishing**: Daily cron publishes approved content on scheduled dates → Notion status: "Published"
+8. **🔄 Status Sync**: Full lifecycle tracked in MongoDB with bidirectional Notion status updates
 
 ## 🛡️ **Security Features**
 
@@ -207,7 +222,19 @@ Sanity-Article-plugin/
 ## 📊 **Database Schema**
 
 - **`configs` Collection**: Plugin configurations per Studio
-- **`draft_metadata` Collection**: Draft status tracking and management
-- **Encrypted Fields**: `notionClientSecret`, `llmApiKey`, `sanityToken`
+  - Multi-tenant isolation with `studioId`
+  - LLM provider selection (openai|mistral|gemini|perplexity)
+  - Encrypted API keys for all services
+  - Dynamic field mappings per schema
+  - System instructions for LLM prompts
 
-This architecture provides a complete content automation pipeline from Notion planning to Sanity publishing with full editorial control and multi-tenant support! 🚀
+- **`draft_metadata` Collection**: Draft lifecycle tracking
+  - Status progression (pending_review → approved → published)
+  - Planned publish dates from Notion
+  - Sanity draft and published document IDs
+  - Timestamps for all lifecycle events
+  - Notion sync status tracking
+
+- **Encrypted Fields**: `notionClientSecret`, `llmApiKey`, `sanityToken`, `sanityProjectId`
+
+This architecture provides a complete content automation pipeline from Notion planning to Sanity publishing with full editorial control, multi-LLM support, bidirectional Notion sync, and multi-tenant isolation! 🚀
