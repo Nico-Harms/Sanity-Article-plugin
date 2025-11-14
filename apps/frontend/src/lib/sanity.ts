@@ -1,4 +1,6 @@
 import { createClient } from '@sanity/client';
+import imageUrlBuilder from '@sanity/image-url';
+import type { PortableTextBlock } from '@portabletext/types';
 
 const projectId = process.env.NEXT_PUBLIC_SANITY_PROJECT_ID || '';
 const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production';
@@ -17,6 +19,13 @@ export const client = createClient({
   apiVersion,
   useCdn,
 });
+
+// Image URL builder for Sanity images
+const builder = imageUrlBuilder(client);
+
+export function urlFor(source: SanityImage) {
+  return builder.image(source);
+}
 
 type SanitySlug = {
   current?: string;
@@ -48,14 +57,18 @@ type SanityImage = {
   asset?: SanityImageAsset;
 };
 
-type PortableTextSpan = {
-  _type?: string;
-  text?: string;
-};
+// Portable text types are now imported from @portabletext/types
 
-type PortableTextBlock = {
-  _type?: string;
-  children?: PortableTextSpan[];
+export type ComplexBlogModule = {
+  _type: 'richTextModule' | 'quoteModule' | 'imageModule' | 'codeModule';
+  _key?: string;
+  content?: PortableTextBlock[];
+  quote?: string;
+  author?: string;
+  image?: SanityImage;
+  caption?: string;
+  code?: string;
+  language?: string;
 };
 
 export type ComplexBlogPost = {
@@ -64,10 +77,11 @@ export type ComplexBlogPost = {
   slug?: SanitySlug;
   publishedAt?: string;
   ingress?: PortableTextBlock[];
+  modules?: ComplexBlogModule[];
 };
 
 export type PostDetail = Post & {
-  body?: string;
+  body?: PortableTextBlock[];
   mainImage?: SanityImage;
 };
 
@@ -84,8 +98,8 @@ const safeFetch = async <T>(
   }
 };
 
-// Query to get all posts
-export const getAllPosts = async (): Promise<Post[]> => {
+// Query to get all posts with full body content
+export const getAllPosts = async (): Promise<PostDetail[]> => {
   const query = `*[_type == "post"] | order(_createdAt desc) {
     _id,
     title,
@@ -97,10 +111,30 @@ export const getAllPosts = async (): Promise<Post[]> => {
     },
     categories[]->{
       title
+    },
+    body[]{
+      ...,
+      _type == "image" => {
+        ...,
+        asset->
+      },
+      markDefs[]{
+        ...,
+        _type == "link" => {
+          ...,
+          "href": @.href
+        }
+      }
+    },
+    mainImage{
+      asset->{
+        _id,
+        url
+      }
     }
   }`;
 
-  return safeFetch<Post[]>(query, {}, []);
+  return safeFetch<PostDetail[]>(query, {}, []);
 };
 
 export const getAllComplexBlogs = async (): Promise<ComplexBlogPost[]> => {
@@ -110,10 +144,54 @@ export const getAllComplexBlogs = async (): Promise<ComplexBlogPost[]> => {
     slug,
     publishedAt,
     ingress[]{
+      ...,
+      _type == "image" => {
+        ...,
+        asset->
+      },
+      markDefs[]{
+        ...,
+        _type == "link" => {
+          ...,
+          "href": @.href
+        }
+      }
+    },
+    modules[]{
       _type,
-      children[]{
-        _type,
-        text
+      _key,
+      _type == "richTextModule" => {
+        content[]{
+          ...,
+          _type == "image" => {
+            ...,
+            asset->
+          },
+          markDefs[]{
+            ...,
+            _type == "link" => {
+              ...,
+              "href": @.href
+            }
+          }
+        }
+      },
+      _type == "quoteModule" => {
+        quote,
+        author
+      },
+      _type == "imageModule" => {
+        image{
+          asset->{
+            _id,
+            url
+          }
+        },
+        caption
+      },
+      _type == "codeModule" => {
+        code,
+        language
       }
     }
   }`;
@@ -121,7 +199,7 @@ export const getAllComplexBlogs = async (): Promise<ComplexBlogPost[]> => {
   return safeFetch<ComplexBlogPost[]>(query, {}, []);
 };
 
-// Query to get a single post by slug
+// Query to get a single post by slug with full content
 export const getPostBySlug = async (
   slug: string
 ): Promise<PostDetail | null> => {
@@ -129,17 +207,117 @@ export const getPostBySlug = async (
     _id,
     title,
     slug,
-    body,
+    excerpt,
     _createdAt,
     author->{
       name,
       image
     },
-    mainImage,
+    mainImage{
+      asset->{
+        _id,
+        url
+      }
+    },
     categories[]->{
       title
+    },
+    body[]{
+      ...,
+      _type == "image" => {
+        ...,
+        asset->{
+          _id,
+          url,
+          metadata
+        },
+        alt
+      },
+      markDefs[]{
+        ...,
+        _type == "link" => {
+          ...,
+          "href": @.href
+        }
+      }
     }
   }`;
 
   return safeFetch<PostDetail | null>(query, { slug }, null);
+};
+
+// Query to get a single complex blog by slug
+export const getComplexBlogBySlug = async (
+  slug: string
+): Promise<ComplexBlogPost | null> => {
+  const query = `*[_type == "complexBlog" && slug.current == $slug][0] {
+    _id,
+    title,
+    slug,
+    publishedAt,
+    ingress[]{
+      ...,
+      _type == "image" => {
+        ...,
+        asset->{
+          _id,
+          url,
+          metadata
+        },
+        alt
+      },
+      markDefs[]{
+        ...,
+        _type == "link" => {
+          ...,
+          "href": @.href
+        }
+      }
+    },
+    modules[]{
+      _type,
+      _key,
+      _type == "richTextModule" => {
+        content[]{
+          ...,
+          _type == "image" => {
+            ...,
+            asset->{
+              _id,
+              url,
+              metadata
+            },
+            alt
+          },
+          markDefs[]{
+            ...,
+            _type == "link" => {
+              ...,
+              "href": @.href
+            }
+          }
+        }
+      },
+      _type == "quoteModule" => {
+        quote,
+        author
+      },
+      _type == "imageModule" => {
+        image{
+          asset->{
+            _id,
+            url,
+            metadata
+          }
+        },
+        caption
+      },
+      _type == "codeModule" => {
+        code,
+        language
+      }
+    }
+  }`;
+
+  return safeFetch<ComplexBlogPost | null>(query, { slug }, null);
 };

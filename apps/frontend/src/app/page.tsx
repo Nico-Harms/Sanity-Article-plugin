@@ -3,8 +3,10 @@ import {
   getAllComplexBlogs,
   getAllPosts,
   ComplexBlogPost,
-  Post,
+  PostDetail,
 } from '@/lib/sanity';
+import PortableTextRenderer from '@/components/PortableTextRenderer';
+import ComplexBlogModules from '@/components/ComplexBlogModules';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,8 +36,8 @@ export default async function Home() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-6">
-          {posts.map((post: Post) => (
+        <div className="grid gap-8">
+          {posts.map((post: PostDetail) => (
             <article
               key={post._id}
               className="bg-white rounded-lg shadow-sm border p-6"
@@ -49,11 +51,7 @@ export default async function Home() {
                 </Link>
               </h3>
 
-              {post.excerpt && (
-                <p className="text-gray-600 mb-4">{post.excerpt}</p>
-              )}
-
-              <div className="flex items-center justify-between text-sm text-gray-500">
+              <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
                 <div className="flex items-center space-x-4">
                   {post.author && <span>By {post.author.name}</span>}
                   <span>{new Date(post._createdAt).toLocaleDateString()}</span>
@@ -72,6 +70,26 @@ export default async function Home() {
                   </div>
                 )}
               </div>
+
+              {post.mainImage?.asset?.url && (
+                <div className="mb-4">
+                  <img
+                    src={post.mainImage.asset.url}
+                    alt={post.title || 'Post image'}
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                </div>
+              )}
+
+              {post.body && post.body.length > 0 && (
+                <div className="mt-4">
+                  <PortableTextRenderer content={post.body} />
+                </div>
+              )}
+
+              {post.excerpt && !post.body && (
+                <p className="text-gray-600">{post.excerpt}</p>
+              )}
             </article>
           ))}
         </div>
@@ -83,48 +101,42 @@ export default async function Home() {
         {complexBlogs.length === 0 ? (
           <p className="text-gray-500">No complex blog posts available.</p>
         ) : (
-          <div className="grid gap-6">
-            {complexBlogs.map((blog: ComplexBlogPost) => {
-              const ingressText = blog.ingress
-                ?.map((block) =>
-                  block.children
-                    ?.filter((child) => child._type === 'span' && child.text)
-                    .map((span) => span.text as string)
-                    .join(' ')
-                )
-                .filter(Boolean)
-                .join('\n');
+          <div className="grid gap-8">
+            {complexBlogs.map((blog: ComplexBlogPost) => (
+              <article
+                key={blog._id}
+                className="bg-white rounded-lg shadow-sm border p-6"
+              >
+                <h3 className="text-xl font-semibold mb-2">
+                  <Link
+                    href={`/posts/${blog.slug?.current || blog._id}`}
+                    className="text-gray-900 hover:text-blue-600 transition-colors"
+                  >
+                    {blog.title || 'Untitled Complex Blog'}
+                  </Link>
+                </h3>
 
-              return (
-                <article
-                  key={blog._id}
-                  className="bg-white rounded-lg shadow-sm border p-6"
-                >
-                  <h3 className="text-xl font-semibold mb-2">
-                    <Link
-                      href={`/posts/${blog.slug?.current || blog._id}`}
-                      className="text-gray-900 hover:text-blue-600 transition-colors"
-                    >
-                      {blog.title || 'Untitled Complex Blog'}
-                    </Link>
-                  </h3>
+                <div className="text-sm text-gray-500 mb-4">
+                  <span>
+                    {blog.publishedAt
+                      ? new Date(blog.publishedAt).toLocaleDateString()
+                      : 'Publish date not set'}
+                  </span>
+                </div>
 
-                  {ingressText && (
-                    <p className="text-gray-600 mb-4 line-clamp-3">
-                      {ingressText}
-                    </p>
-                  )}
-
-                  <div className="text-sm text-gray-500">
-                    <span>
-                      {blog.publishedAt
-                        ? new Date(blog.publishedAt).toLocaleDateString()
-                        : 'Publish date not set'}
-                    </span>
+                {blog.ingress && blog.ingress.length > 0 && (
+                  <div className="mt-4">
+                    <PortableTextRenderer content={blog.ingress} />
                   </div>
-                </article>
-              );
-            })}
+                )}
+
+                {blog.modules && blog.modules.length > 0 && (
+                  <div className="mt-6">
+                    <ComplexBlogModules modules={blog.modules} />
+                  </div>
+                )}
+              </article>
+            ))}
           </div>
         )}
       </section>

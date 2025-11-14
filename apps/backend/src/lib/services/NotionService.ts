@@ -2,6 +2,7 @@ import { Client } from '@notionhq/client';
 import type {
   GetPageResponse,
   PageObjectResponse,
+  RichTextItemResponse,
 } from '@notionhq/client/build/src/api-endpoints';
 import type { NotionPage, NotionDatabase } from '@sanity-notion-llm/shared';
 import { NOTION_DEFAULTS, ERROR_MESSAGES } from '@sanity-notion-llm/shared';
@@ -44,6 +45,11 @@ const isFullPageResponse = (
 /*===============================================
 =          Extract property value           =
 ===============================================*/
+
+interface ReferenceLink {
+  label: string;
+  url: string;
+}
 
 const extractPropertyValue = (property: any): any => {
   if (!property || !property.type) return null;
@@ -308,56 +314,87 @@ export const createNotionClient = (apiKey: string): NotionClient => {
         page_size: 100,
       });
 
+      const references: ReferenceLink[] = [];
+      const referenceKeys = new Set<string>();
+
+      const extractPlainText = (
+        richText: RichTextItemResponse[] | undefined | null
+      ): string => {
+        if (!richText || richText.length === 0) return '';
+
+        return richText
+          .map((text) => {
+            const href =
+              text.href ??
+              (text.type === 'text' ? text.text.link?.url ?? null : null);
+
+            if (href) {
+              const label = text.plain_text?.trim() || href;
+              const key = `${label}|${href}`;
+
+              if (!referenceKeys.has(key)) {
+                referenceKeys.add(key);
+                references.push({ label, url: href });
+              }
+
+              return text.plain_text;
+            }
+
+            return text.plain_text;
+          })
+          .join('');
+      };
+
       // Extract text content from blocks
       const contentBlocks = response.results
         .filter((block) => 'type' in block)
         .map((block) => {
           if (block.type === 'paragraph' && 'paragraph' in block) {
-            return block.paragraph.rich_text
-              .map((text) => text.plain_text)
-              .join('');
+            return extractPlainText(block.paragraph.rich_text);
           }
           if (block.type === 'heading_1' && 'heading_1' in block) {
-            return `# ${block.heading_1.rich_text
-              .map((text) => text.plain_text)
-              .join('')}`;
+            return `# ${extractPlainText(block.heading_1.rich_text)}`;
           }
           if (block.type === 'heading_2' && 'heading_2' in block) {
-            return `## ${block.heading_2.rich_text
-              .map((text) => text.plain_text)
-              .join('')}`;
+            return `## ${extractPlainText(block.heading_2.rich_text)}`;
           }
           if (block.type === 'heading_3' && 'heading_3' in block) {
-            return `### ${block.heading_3.rich_text
-              .map((text) => text.plain_text)
-              .join('')}`;
+            return `### ${extractPlainText(block.heading_3.rich_text)}`;
           }
           if (
             block.type === 'bulleted_list_item' &&
             'bulleted_list_item' in block
           ) {
-            return `• ${block.bulleted_list_item.rich_text
-              .map((text) => text.plain_text)
-              .join('')}`;
+            return `• ${extractPlainText(block.bulleted_list_item.rich_text)}`;
           }
           if (
             block.type === 'numbered_list_item' &&
             'numbered_list_item' in block
           ) {
-            return `1. ${block.numbered_list_item.rich_text
-              .map((text) => text.plain_text)
-              .join('')}`;
+            return `1. ${extractPlainText(block.numbered_list_item.rich_text)}`;
           }
           if (block.type === 'quote' && 'quote' in block) {
-            return `> ${block.quote.rich_text
-              .map((text) => text.plain_text)
-              .join('')}`;
+            return `> ${extractPlainText(block.quote.rich_text)}`;
           }
           return '';
         })
         .filter((text) => text.trim().length > 0);
 
-      return contentBlocks.join('\n\n');
+      const content = contentBlocks.join('\n\n');
+
+      if (references.length === 0) {
+        return content;
+      }
+
+      const referenceSection = [
+        '',
+        'REFERENCES:',
+        ...references.map(
+          (ref, index) => `${index + 1}. ${ref.label} - ${ref.url}`
+        ),
+      ].join('\n');
+
+      return `${content}${referenceSection}`;
     } catch (error) {
       console.error('[notion] Failed to get page content:', error);
       return '';
