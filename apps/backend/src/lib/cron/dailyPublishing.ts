@@ -36,6 +36,10 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
     const draftsToPublish =
       await draftMetadataService.findDraftsForPublishing(today);
 
+    console.log(
+      `[cron] Found ${draftsToPublish.length} drafts scheduled for ${today}`
+    );
+
     // Group drafts by studioId
     const draftsByStudio = new Map<string, typeof draftsToPublish>();
     for (const draft of draftsToPublish) {
@@ -66,65 +70,70 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
 
         // Publish each draft
         for (const draft of studioDrafts) {
-          const draftInfo = {
-            sanityDraftId: draft.sanityDraftId,
-            notionPageId: draft.notionPageId || 'N/A',
-            plannedPublishDate: draft.plannedPublishDate,
-            status: draft.status,
-            studioId: draft.studioId,
-            generatedAt: draft.generatedAt?.toISOString() || 'N/A',
-          };
-
           try {
             console.log(
-              `[cron] Attempting to publish draft: ${JSON.stringify(draftInfo, null, 2)}`
+              `[cron] Processing draft: ${draft.sanityDraftId} (Notion: ${draft.notionPageId || 'N/A'}, Status: ${draft.status}, Planned: ${draft.plannedPublishDate})`
             );
 
-            // Check if draft exists before trying to publish
+            // First, check if draft exists in Sanity
             const draftDoc = await sanityContext.service.getDocument(
               draft.sanityDraftId
             );
 
-            // If draft doesn't exist, check if it's already published
             if (!draftDoc) {
+              console.log(
+                `[cron] Draft ${draft.sanityDraftId} not found as draft, checking if published...`
+              );
+              // Draft doesn't exist - check if it's already published
               const publishedId = draft.sanityDraftId.replace('drafts.', '');
               const publishedDoc =
                 await sanityContext.service.getDocument(publishedId);
 
               if (publishedDoc) {
-                // Already published, just update metadata
                 console.log(
-                  `[cron] ✓ Draft ${draft.sanityDraftId} already published (found published version), updating metadata`
+                  `[cron] Draft ${draft.sanityDraftId} already published, updating metadata`
                 );
+                // Already published - just update metadata
                 await draftMetadataService.updateStatus(
                   draft.sanityDraftId,
                   'published'
                 );
                 stats.draftsPublished++;
                 continue;
-              } else {
-                // Neither draft nor published version exists
-                const errorDetails = {
-                  message: `Draft not found in Sanity`,
-                  draftInfo,
-                  checkedIds: {
-                    draftId: draft.sanityDraftId,
-                    publishedId,
-                  },
-                };
-                console.error(
-                  `[cron] ✗ Draft not found: ${JSON.stringify(errorDetails, null, 2)}`
-                );
-                stats.errors.push(
-                  `[${config.studioId}] Draft ${draft.sanityDraftId} not found in Sanity (Notion: ${draft.notionPageId || 'N/A'}, Planned: ${draft.plannedPublishDate})`
-                );
-                // Don't throw - continue with next draft
-                continue;
               }
+
+              // Draft doesn't exist and isn't published - orphaned metadata
+              console.error(
+                `[cron] ERROR: Draft ${draft.sanityDraftId} not found in Sanity (orphaned metadata). Notion: ${draft.notionPageId || 'N/A'}, Generated: ${draft.generatedAt?.toISOString() || 'N/A'}, Planned: ${draft.plannedPublishDate}`
+              );
+
+              // Mark as orphaned to prevent future attempts
+              try {
+                await draftMetadataService.markAsOrphaned(
+                  draft.sanityDraftId,
+                  `Sanity document not found (neither draft nor published)`
+                );
+                console.log(
+                  `[cron] Marked draft ${draft.sanityDraftId} as orphaned/rejected`
+                );
+              } catch (markError) {
+                console.error(
+                  `[cron] Failed to mark draft ${draft.sanityDraftId} as orphaned:`,
+                  markError
+                );
+              }
+
+              stats.errors.push(
+                `Draft ${draft.sanityDraftId} not found in Sanity (marked as orphaned)`
+              );
+              continue;
             }
 
-            // Draft exists, proceed with publishing
-            console.log(`[cron] Publishing draft ${draft.sanityDraftId}...`);
+            console.log(
+              `[cron] Draft ${draft.sanityDraftId} found, proceeding with publish...`
+            );
+
+            // Draft exists - publish it
             await sanityContext.service.publishDraft(draft.sanityDraftId);
             await draftMetadataService.updateStatus(
               draft.sanityDraftId,
@@ -143,27 +152,17 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
               );
             }
 
-            console.log(
-              `[cron] ✓ Successfully published draft ${draft.sanityDraftId}`
-            );
             stats.draftsPublished++;
           } catch (error) {
             const errorMessage =
               error instanceof Error ? error.message : 'Unknown error';
-            const errorDetails = {
-              message: errorMessage,
-              draftInfo,
-              errorStack: error instanceof Error ? error.stack : undefined,
-            };
-
-            console.error(
-              `[cron] ✗ Failed to publish draft: ${JSON.stringify(errorDetails, null, 2)}`
-            );
-
             stats.errors.push(
-              `[${config.studioId}] Failed to publish draft ${draft.sanityDraftId} (Notion: ${draft.notionPageId || 'N/A'}, Planned: ${draft.plannedPublishDate}): ${errorMessage}`
+              `Failed to publish draft ${draft.sanityDraftId}: ${errorMessage}`
             );
-            // Don't throw - continue with next draft
+            console.error(
+              `[cron] Failed to publish draft ${draft.sanityDraftId}:`,
+              error
+            );
           }
         }
 
@@ -184,20 +183,6 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
       `Failed to publish scheduled content: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
-
-  // Log summary
-  console.log(
-    `[cron] Publishing summary: ${JSON.stringify(
-      {
-        studiosProcessed: stats.studiosProcessed,
-        draftsPublished: stats.draftsPublished,
-        errorsCount: stats.errors.length,
-        errors: stats.errors,
-      },
-      null,
-      2
-    )}`
-  );
 
   return stats;
 }
