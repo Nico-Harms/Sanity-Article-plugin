@@ -142,7 +142,7 @@ ${enabledFields.map((field) => `  "${field.name}": "generated_value"`).join(',\n
 CRITICAL LINK PRESERVATION RULES:
 - The content plan may contain markdown links in the format [text](url)
 - You MUST preserve ALL links exactly as they appear in the content plan
-- If you see a link like [title of the link(URL), you MUST include it in your generated content with the EXACT same format: [customQuake - part of the Kruso family](https://www.linkedin.com/company/customquake/)
+- If you see a link like [title of the link - (https:URL), you MUST include it in your generated content with the EXACT same format: [customQuake - part of the Kruso family](https://www.linkedin.com/company/customquake/)
 - Do NOT change the link text or URL - use them exactly as provided
 - Do NOT convert links to plain text - they must remain in markdown format [text](url)
 - If multiple links appear in the content plan, include ALL of them in your generated article
