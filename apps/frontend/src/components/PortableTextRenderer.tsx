@@ -52,9 +52,7 @@ const components: PortableTextComponents = {
     ),
   },
   marks: {
-    strong: ({ children }) => (
-      <strong className="font-bold">{children}</strong>
-    ),
+    strong: ({ children }) => <strong className="font-bold">{children}</strong>,
     em: ({ children }) => <em className="italic">{children}</em>,
     link: ({ value, children }) => {
       const href = value?.href || '';
@@ -99,4 +97,3 @@ export default function PortableTextRenderer({
     </div>
   );
 }
-

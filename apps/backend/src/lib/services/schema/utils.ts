@@ -60,52 +60,21 @@ export function isBlockContentArray(value: unknown): value is Array<unknown> {
 
   return value.every(
     (item) =>
-      item && typeof item === 'object' && (item as Record<string, unknown>)._type === 'block'
+      item &&
+      typeof item === 'object' &&
+      (item as Record<string, unknown>)._type === 'block'
   );
 }
 
 export function isRichTextBlockArray(items: unknown[]): boolean {
   if (items.length === 0) return false;
-  return items.every((item) => item && (item as Record<string, unknown>)._type === 'block');
+  return items.every(
+    (item) => item && (item as Record<string, unknown>)._type === 'block'
+  );
 }
 
-export function convertStringToBlockContent(text: unknown): any[] {
-  if (!text || typeof text !== 'string') {
-    return [];
-  }
-
-  const cleanText = text.trim();
-  if (!cleanText) {
-    return [];
-  }
-
-  const paragraphs = cleanText.split(/\n\s*\n/).filter((paragraph) => paragraph.trim());
-
-  if (paragraphs.length === 0) {
-    paragraphs.push(cleanText);
-  }
-
-  return paragraphs
-    .map((paragraph) => {
-      const cleanParagraph = paragraph.trim();
-      if (!cleanParagraph) return null;
-
-      return {
-        _type: 'block',
-        _key: generateKey(),
-        style: 'normal',
-        children: [
-          {
-            _type: 'span',
-            _key: generateKey(),
-            text: cleanParagraph,
-            marks: [],
-          },
-        ],
-      };
-    })
-    .filter(Boolean);
-}
+// Re-export block content converter from dedicated module
+export { convertStringToBlockContent } from './blockContentConverter';
 
 export function generateKey(): string {
   return Math.random().toString(36).substring(2, 15);
@@ -124,7 +93,10 @@ export function ensureArrayItemHasKey<T>(item: T): T {
   return item;
 }
 
-export function mergeFields(existing: SchemaField[], incoming: SchemaField[]): SchemaField[] {
+export function mergeFields(
+  existing: SchemaField[],
+  incoming: SchemaField[]
+): SchemaField[] {
   const map = new Map<string, SchemaField>();
 
   existing.forEach((field) => map.set(field.name, field));

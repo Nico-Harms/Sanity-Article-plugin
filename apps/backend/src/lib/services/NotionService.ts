@@ -46,19 +46,22 @@ const isFullPageResponse = (
 =          Extract property value           =
 ===============================================*/
 
-interface ReferenceLink {
-  label: string;
-  url: string;
-}
-
 const extractPropertyValue = (property: any): any => {
   if (!property || !property.type) return null;
 
   switch (property.type) {
     case 'title':
-      return property.title?.map((t: any) => t.plain_text).join('') || '';
+      return (
+        property.title
+          ?.map((t: RichTextItemResponse) => t.plain_text)
+          .join('') || ''
+      );
     case 'rich_text':
-      return property.rich_text?.map((t: any) => t.plain_text).join('') || '';
+      return (
+        property.rich_text
+          ?.map((t: RichTextItemResponse) => t.plain_text)
+          .join('') || ''
+      );
     case 'select':
       return property.select?.name || null;
     case 'multi_select':
@@ -314,87 +317,73 @@ export const createNotionClient = (apiKey: string): NotionClient => {
         page_size: 100,
       });
 
-      const references: ReferenceLink[] = [];
-      const referenceKeys = new Set<string>();
-
-      const extractPlainText = (
+      /**
+       * Extracts rich text and converts links to markdown format [text](url)
+       * This ensures links are preserved exactly as they appear in Notion
+       */
+      const extractRichTextWithLinks = (
         richText: RichTextItemResponse[] | undefined | null
       ): string => {
         if (!richText || richText.length === 0) return '';
 
         return richText
           .map((text) => {
+            const content = text.plain_text || '';
             const href =
               text.href ??
-              (text.type === 'text' ? text.text.link?.url ?? null : null);
+              (text.type === 'text' ? (text.text.link?.url ?? null) : null);
 
+            // If there's a link, format as markdown link [text](url)
             if (href) {
-              const label = text.plain_text?.trim() || href;
-              const key = `${label}|${href}`;
-
-              if (!referenceKeys.has(key)) {
-                referenceKeys.add(key);
-                references.push({ label, url: href });
-              }
-
-              return text.plain_text;
+              // Escape brackets in content to avoid breaking markdown syntax
+              const escapedContent = content
+                .replace(/\[/g, '\\[')
+                .replace(/\]/g, '\\]');
+              return `[${escapedContent}](${href})`;
             }
 
-            return text.plain_text;
+            // Otherwise just return the plain text
+            return content;
           })
-          .join('');
+          .join(''); // Join without spaces to preserve original text flow
       };
 
-      // Extract text content from blocks
+      // Extract text content from blocks with links formatted as markdown
       const contentBlocks = response.results
         .filter((block) => 'type' in block)
         .map((block) => {
           if (block.type === 'paragraph' && 'paragraph' in block) {
-            return extractPlainText(block.paragraph.rich_text);
+            return extractRichTextWithLinks(block.paragraph.rich_text);
           }
           if (block.type === 'heading_1' && 'heading_1' in block) {
-            return `# ${extractPlainText(block.heading_1.rich_text)}`;
+            return `# ${extractRichTextWithLinks(block.heading_1.rich_text)}`;
           }
           if (block.type === 'heading_2' && 'heading_2' in block) {
-            return `## ${extractPlainText(block.heading_2.rich_text)}`;
+            return `## ${extractRichTextWithLinks(block.heading_2.rich_text)}`;
           }
           if (block.type === 'heading_3' && 'heading_3' in block) {
-            return `### ${extractPlainText(block.heading_3.rich_text)}`;
+            return `### ${extractRichTextWithLinks(block.heading_3.rich_text)}`;
           }
           if (
             block.type === 'bulleted_list_item' &&
             'bulleted_list_item' in block
           ) {
-            return `• ${extractPlainText(block.bulleted_list_item.rich_text)}`;
+            return `• ${extractRichTextWithLinks(block.bulleted_list_item.rich_text)}`;
           }
           if (
             block.type === 'numbered_list_item' &&
             'numbered_list_item' in block
           ) {
-            return `1. ${extractPlainText(block.numbered_list_item.rich_text)}`;
+            return `1. ${extractRichTextWithLinks(block.numbered_list_item.rich_text)}`;
           }
           if (block.type === 'quote' && 'quote' in block) {
-            return `> ${extractPlainText(block.quote.rich_text)}`;
+            return `> ${extractRichTextWithLinks(block.quote.rich_text)}`;
           }
           return '';
         })
         .filter((text) => text.trim().length > 0);
 
-      const content = contentBlocks.join('\n\n');
-
-      if (references.length === 0) {
-        return content;
-      }
-
-      const referenceSection = [
-        '',
-        'REFERENCES:',
-        ...references.map(
-          (ref, index) => `${index + 1}. ${ref.label} - ${ref.url}`
-        ),
-      ].join('\n');
-
-      return `${content}${referenceSection}`;
+      return contentBlocks.join('\n\n');
     } catch (error) {
       console.error('[notion] Failed to get page content:', error);
       return '';
