@@ -71,14 +71,13 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
             const draftDoc = await sanityContext.service.getDocument(
               draft.sanityDraftId
             );
-            
+
             // If draft doesn't exist, check if it's already published
             if (!draftDoc) {
               const publishedId = draft.sanityDraftId.replace('drafts.', '');
-              const publishedDoc = await sanityContext.service.getDocument(
-                publishedId
-              );
-              
+              const publishedDoc =
+                await sanityContext.service.getDocument(publishedId);
+
               if (publishedDoc) {
                 // Already published, just update metadata
                 console.log(
@@ -107,7 +106,9 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
 
             // Update Notion page status to "Published" (best-effort)
             if (draft.notionPageId && config.notionClientSecret) {
-              const notionClientSecret = decryptSecret(config.notionClientSecret);
+              const notionClientSecret = decryptSecret(
+                config.notionClientSecret
+              );
               await updateNotionStatusSafely(
                 draft.notionPageId,
                 'Published',
