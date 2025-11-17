@@ -66,7 +66,21 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
 
         // Publish each draft
         for (const draft of studioDrafts) {
+          const draftInfo = {
+            sanityDraftId: draft.sanityDraftId,
+            notionPageId: draft.notionPageId || 'N/A',
+            plannedPublishDate: draft.plannedPublishDate,
+            status: draft.status,
+            studioId: draft.studioId,
+            generatedAt: draft.generatedAt?.toISOString() || 'N/A',
+          };
+
           try {
+            console.log(
+              `[cron] Attempting to publish draft:`,
+              JSON.stringify(draftInfo, null, 2)
+            );
+
             // Check if draft exists before trying to publish
             const draftDoc = await sanityContext.service.getDocument(
               draft.sanityDraftId
@@ -81,7 +95,7 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
               if (publishedDoc) {
                 // Already published, just update metadata
                 console.log(
-                  `[cron] Draft ${draft.sanityDraftId} already published, updating metadata`
+                  `[cron] ✓ Draft ${draft.sanityDraftId} already published (found published version), updating metadata`
                 );
                 await draftMetadataService.updateStatus(
                   draft.sanityDraftId,
@@ -91,13 +105,28 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
                 continue;
               } else {
                 // Neither draft nor published version exists
-                throw new Error(
-                  `Draft ${draft.sanityDraftId} not found in Sanity`
+                const errorDetails = {
+                  message: `Draft not found in Sanity`,
+                  draftInfo,
+                  checkedIds: {
+                    draftId: draft.sanityDraftId,
+                    publishedId,
+                  },
+                };
+                console.error(
+                  `[cron] ✗ Draft not found:`,
+                  JSON.stringify(errorDetails, null, 2)
                 );
+                stats.errors.push(
+                  `[${config.studioId}] Draft ${draft.sanityDraftId} not found in Sanity (Notion: ${draft.notionPageId || 'N/A'}, Planned: ${draft.plannedPublishDate})`
+                );
+                // Don't throw - continue with next draft
+                continue;
               }
             }
 
             // Draft exists, proceed with publishing
+            console.log(`[cron] Publishing draft ${draft.sanityDraftId}...`);
             await sanityContext.service.publishDraft(draft.sanityDraftId);
             await draftMetadataService.updateStatus(
               draft.sanityDraftId,
@@ -116,17 +145,28 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
               );
             }
 
+            console.log(
+              `[cron] ✓ Successfully published draft ${draft.sanityDraftId}`
+            );
             stats.draftsPublished++;
           } catch (error) {
             const errorMessage =
               error instanceof Error ? error.message : 'Unknown error';
-            stats.errors.push(
-              `[${config.studioId}] Failed to publish draft ${draft.sanityDraftId}: ${errorMessage}`
-            );
+            const errorDetails = {
+              message: errorMessage,
+              draftInfo,
+              errorStack: error instanceof Error ? error.stack : undefined,
+            };
+
             console.error(
-              `[cron] Failed to publish draft ${draft.sanityDraftId}:`,
-              error
+              `[cron] ✗ Failed to publish draft:`,
+              JSON.stringify(errorDetails, null, 2)
             );
+
+            stats.errors.push(
+              `[${config.studioId}] Failed to publish draft ${draft.sanityDraftId} (Notion: ${draft.notionPageId || 'N/A'}, Planned: ${draft.plannedPublishDate}): ${errorMessage}`
+            );
+            // Don't throw - continue with next draft
           }
         }
 
@@ -147,6 +187,21 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
       `Failed to publish scheduled content: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
+
+  // Log summary
+  console.log(
+    `[cron] Publishing summary:`,
+    JSON.stringify(
+      {
+        studiosProcessed: stats.studiosProcessed,
+        draftsPublished: stats.draftsPublished,
+        errorsCount: stats.errors.length,
+        errors: stats.errors,
+      },
+      null,
+      2
+    )
+  );
 
   return stats;
 }
