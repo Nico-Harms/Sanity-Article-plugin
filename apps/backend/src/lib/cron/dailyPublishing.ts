@@ -77,8 +77,7 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
 
           try {
             console.log(
-              `[cron] Attempting to publish draft:`,
-              JSON.stringify(draftInfo, null, 2)
+              `[cron] Attempting to publish draft: ${JSON.stringify(draftInfo, null, 2)}`
             );
 
             // Check if draft exists before trying to publish
@@ -114,8 +113,7 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
                   },
                 };
                 console.error(
-                  `[cron] ✗ Draft not found:`,
-                  JSON.stringify(errorDetails, null, 2)
+                  `[cron] ✗ Draft not found: ${JSON.stringify(errorDetails, null, 2)}`
                 );
                 stats.errors.push(
                   `[${config.studioId}] Draft ${draft.sanityDraftId} not found in Sanity (Notion: ${draft.notionPageId || 'N/A'}, Planned: ${draft.plannedPublishDate})`
@@ -159,8 +157,7 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
             };
 
             console.error(
-              `[cron] ✗ Failed to publish draft:`,
-              JSON.stringify(errorDetails, null, 2)
+              `[cron] ✗ Failed to publish draft: ${JSON.stringify(errorDetails, null, 2)}`
             );
 
             stats.errors.push(
@@ -190,8 +187,7 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
 
   // Log summary
   console.log(
-    `[cron] Publishing summary:`,
-    JSON.stringify(
+    `[cron] Publishing summary: ${JSON.stringify(
       {
         studiosProcessed: stats.studiosProcessed,
         draftsPublished: stats.draftsPublished,
@@ -200,7 +196,7 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
       },
       null,
       2
-    )
+    )}`
   );
 
   return stats;
