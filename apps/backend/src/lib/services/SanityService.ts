@@ -115,12 +115,38 @@ export class SanityService {
   async publishDraft(documentId: string) {
     // First, get the draft document
     const draft = await this.client.getDocument(documentId);
+    
+    // If draft doesn't exist, check if it's already published
     if (!draft) {
+      // Check if published version exists
+      const publishedId = documentId.replace('drafts.', '');
+      const publishedDoc = await this.client.getDocument(publishedId);
+      
+      if (publishedDoc) {
+        // Already published, return the published document
+        return publishedDoc;
+      }
+      
+      // Neither draft nor published version exists
       throw new Error(`Draft document ${documentId} not found`);
     }
 
     // Create the published version by removing the drafts. prefix
     const publishedId = documentId.replace('drafts.', '');
+
+    // Check if published version already exists
+    const existingPublished = await this.client.getDocument(publishedId);
+    
+    if (existingPublished) {
+      // Already published, delete the draft and return published version
+      try {
+        await this.client.delete(documentId);
+      } catch (deleteError) {
+        // Ignore delete errors (draft might already be deleted)
+        console.warn(`[sanity] Could not delete draft ${documentId}:`, deleteError);
+      }
+      return existingPublished;
+    }
 
     // Create the published document (remove _id to replace it)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -134,7 +160,12 @@ export class SanityService {
     const result = await this.client.createOrReplace(publishedDoc);
 
     // Delete the draft
-    await this.client.delete(documentId);
+    try {
+      await this.client.delete(documentId);
+    } catch (deleteError) {
+      // Ignore delete errors (draft might already be deleted)
+      console.warn(`[sanity] Could not delete draft ${documentId}:`, deleteError);
+    }
 
     return result;
   }

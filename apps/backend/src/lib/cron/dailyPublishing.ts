@@ -67,6 +67,38 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
         // Publish each draft
         for (const draft of studioDrafts) {
           try {
+            // Check if draft exists before trying to publish
+            const draftDoc = await sanityContext.service.getDocument(
+              draft.sanityDraftId
+            );
+            
+            // If draft doesn't exist, check if it's already published
+            if (!draftDoc) {
+              const publishedId = draft.sanityDraftId.replace('drafts.', '');
+              const publishedDoc = await sanityContext.service.getDocument(
+                publishedId
+              );
+              
+              if (publishedDoc) {
+                // Already published, just update metadata
+                console.log(
+                  `[cron] Draft ${draft.sanityDraftId} already published, updating metadata`
+                );
+                await draftMetadataService.updateStatus(
+                  draft.sanityDraftId,
+                  'published'
+                );
+                stats.draftsPublished++;
+                continue;
+              } else {
+                // Neither draft nor published version exists
+                throw new Error(
+                  `Draft ${draft.sanityDraftId} not found in Sanity`
+                );
+              }
+            }
+
+            // Draft exists, proceed with publishing
             await sanityContext.service.publishDraft(draft.sanityDraftId);
             await draftMetadataService.updateStatus(
               draft.sanityDraftId,
