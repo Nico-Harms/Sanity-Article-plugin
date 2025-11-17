@@ -36,10 +36,6 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
     const draftsToPublish =
       await draftMetadataService.findDraftsForPublishing(today);
 
-    console.log(
-      `[cron] Found ${draftsToPublish.length} drafts scheduled for ${today}`
-    );
-
     // Group drafts by studioId
     const draftsByStudio = new Map<string, typeof draftsToPublish>();
     for (const draft of draftsToPublish) {
@@ -71,69 +67,6 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
         // Publish each draft
         for (const draft of studioDrafts) {
           try {
-            console.log(
-              `[cron] Processing draft: ${draft.sanityDraftId} (Notion: ${draft.notionPageId || 'N/A'}, Status: ${draft.status}, Planned: ${draft.plannedPublishDate})`
-            );
-
-            // First, check if draft exists in Sanity
-            const draftDoc = await sanityContext.service.getDocument(
-              draft.sanityDraftId
-            );
-
-            if (!draftDoc) {
-              console.log(
-                `[cron] Draft ${draft.sanityDraftId} not found as draft, checking if published...`
-              );
-              // Draft doesn't exist - check if it's already published
-              const publishedId = draft.sanityDraftId.replace('drafts.', '');
-              const publishedDoc =
-                await sanityContext.service.getDocument(publishedId);
-
-              if (publishedDoc) {
-                console.log(
-                  `[cron] Draft ${draft.sanityDraftId} already published, updating metadata`
-                );
-                // Already published - just update metadata
-                await draftMetadataService.updateStatus(
-                  draft.sanityDraftId,
-                  'published'
-                );
-                stats.draftsPublished++;
-                continue;
-              }
-
-              // Draft doesn't exist and isn't published - orphaned metadata
-              console.error(
-                `[cron] ERROR: Draft ${draft.sanityDraftId} not found in Sanity (orphaned metadata). Notion: ${draft.notionPageId || 'N/A'}, Generated: ${draft.generatedAt?.toISOString() || 'N/A'}, Planned: ${draft.plannedPublishDate}`
-              );
-
-              // Mark as orphaned to prevent future attempts
-              try {
-                await draftMetadataService.markAsOrphaned(
-                  draft.sanityDraftId,
-                  `Sanity document not found (neither draft nor published)`
-                );
-                console.log(
-                  `[cron] Marked draft ${draft.sanityDraftId} as orphaned/rejected`
-                );
-              } catch (markError) {
-                console.error(
-                  `[cron] Failed to mark draft ${draft.sanityDraftId} as orphaned:`,
-                  markError
-                );
-              }
-
-              stats.errors.push(
-                `Draft ${draft.sanityDraftId} not found in Sanity (marked as orphaned)`
-              );
-              continue;
-            }
-
-            console.log(
-              `[cron] Draft ${draft.sanityDraftId} found, proceeding with publish...`
-            );
-
-            // Draft exists - publish it
             await sanityContext.service.publishDraft(draft.sanityDraftId);
             await draftMetadataService.updateStatus(
               draft.sanityDraftId,

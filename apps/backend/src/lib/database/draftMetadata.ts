@@ -106,26 +106,6 @@ export class DraftMetadataService {
     await this.collection.deleteOne({ sanityDraftId });
   }
 
-  /**
-   * Mark a draft as orphaned (Sanity document no longer exists)
-   * This prevents it from being attempted again in cron jobs
-   */
-  async markAsOrphaned(
-    sanityDraftId: string,
-    reason: string
-  ): Promise<void> {
-    await this.collection.updateOne(
-      { sanityDraftId },
-      {
-        $set: {
-          status: 'rejected' as DraftMetadata['status'],
-          errorMessage: `Orphaned: ${reason}`,
-          rejectedAt: new Date(),
-        },
-      }
-    );
-  }
-
   async findByNotionPageId(
     studioId: string,
     notionPageId: string
