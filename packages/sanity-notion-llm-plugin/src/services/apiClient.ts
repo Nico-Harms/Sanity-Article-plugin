@@ -4,7 +4,7 @@ import type {
   GenerateResponse,
   DraftWithMetadata,
   DraftStats,
-} from '@sanity-notion-llm/shared';
+} from 'sanity-hermes-shared';
 
 const BACKEND_URL =
   process.env.SANITY_STUDIO_BACKEND_URL || 'http://localhost:3001';

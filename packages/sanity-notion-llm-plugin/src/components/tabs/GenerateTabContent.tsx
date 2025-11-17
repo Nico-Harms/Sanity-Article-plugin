@@ -1,4 +1,4 @@
-import { type PluginConfig } from '@sanity-notion-llm/shared';
+import { type PluginConfig } from 'sanity-hermes-shared';
 import { GenerationSection } from '../generation/GenerationSection';
 
 interface GenerateTabContentProps {

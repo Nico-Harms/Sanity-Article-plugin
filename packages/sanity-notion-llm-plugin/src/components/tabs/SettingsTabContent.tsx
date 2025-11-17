@@ -1,5 +1,5 @@
 import { Card, Text, Stack, Button, Box } from '@sanity/ui';
-import { type PluginConfig } from '@sanity-notion-llm/shared';
+import { type PluginConfig } from 'sanity-hermes-shared';
 import { ApiConfigSection } from '../config/ApiConfigSection';
 import { ConnectionStatus } from '../config/ConnectionStatus';
 import { InstructionsSection } from '../config/InstructionsSection';

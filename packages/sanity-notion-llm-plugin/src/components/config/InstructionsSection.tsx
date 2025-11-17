@@ -1,5 +1,5 @@
 import { Card, Text, TextArea, Box, Stack } from '@sanity/ui';
-import type { PluginConfig } from '@sanity-notion-llm/shared';
+import type { PluginConfig } from 'sanity-hermes-shared';
 import type { ConfigFieldKey } from '../../tool/types';
 
 interface InstructionsSectionProps {

@@ -6,7 +6,7 @@ import { SettingsTabContent } from '../components/tabs/SettingsTabContent';
 import { GenerateTabContent } from '../components/tabs/GenerateTabContent';
 import { GeneralTabContent } from '../components/tabs/GeneralTabContent';
 import { usePluginConfig } from './hooks/usePluginConfig';
-import type { PluginConfig, DetectedField } from '@sanity-notion-llm/shared';
+import type { PluginConfig, DetectedField } from 'sanity-hermes-shared';
 import { useNotionData } from './hooks/useNotionData';
 import { ApiClient } from '../services/apiClient';
 

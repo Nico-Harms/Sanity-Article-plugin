@@ -1,6 +1,6 @@
 import { Card, Text, Stack, Select, Box, Button, Flex } from '@sanity/ui';
 import { SimpleFieldCard } from '../common/SimpleFieldCard';
-import type { PluginConfig, SchemaType } from '@sanity-notion-llm/shared';
+import type { PluginConfig, SchemaType } from 'sanity-hermes-shared';
 
 interface SimpleFieldsTabContentProps {
   config: PluginConfig;

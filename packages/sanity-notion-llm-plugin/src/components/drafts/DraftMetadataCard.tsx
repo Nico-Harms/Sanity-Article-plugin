@@ -1,6 +1,6 @@
 import React from 'react';
 import { Card, Text, Stack, Badge, Flex, Box } from '@sanity/ui';
-import type { DraftWithMetadata } from '@sanity-notion-llm/shared';
+import type { DraftWithMetadata } from 'sanity-hermes-shared';
 import { formatMonthAndDate } from '../../utils/dateUtils';
 
 // Status configuration with labels, tones, and messages

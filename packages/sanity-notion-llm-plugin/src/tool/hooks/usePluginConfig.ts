@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { PluginConfig, SchemaType } from '@sanity-notion-llm/shared';
+import type { PluginConfig, SchemaType } from 'sanity-hermes-shared';
 import { ApiClient } from '../../services/apiClient';
 
 export interface PluginConfigState {

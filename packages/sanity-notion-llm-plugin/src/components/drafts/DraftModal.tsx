@@ -11,7 +11,7 @@ import {
 import { useClient } from 'sanity';
 import { useState, useEffect } from 'react';
 import { EditIcon } from '@sanity/icons';
-import type { DraftWithMetadata } from '@sanity-notion-llm/shared';
+import type { DraftWithMetadata } from 'sanity-hermes-shared';
 import { DraftMetadataCard } from './DraftMetadataCard';
 import { MinimalContentFormatter } from '../common/MinimalContentFormatter';
 

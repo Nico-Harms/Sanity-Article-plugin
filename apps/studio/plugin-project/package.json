@@ -20,7 +20,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "sanity": "^4.11.0",
-    "sanity-notion-llm-plugin": "file:../../../packages/sanity-notion-llm-plugin",
+    "sanity-hermes": "file:../../../packages/sanity-notion-llm-plugin",
     "styled-components": "^6.1.18"
   },
   "devDependencies": {

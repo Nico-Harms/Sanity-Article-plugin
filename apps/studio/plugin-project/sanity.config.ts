@@ -2,14 +2,14 @@ import {defineConfig} from 'sanity'
 import {structureTool} from 'sanity/structure'
 import {visionTool} from '@sanity/vision'
 import {schemaTypes} from './schemaTypes'
-import {sanityNotionLLMPlugin} from 'sanity-notion-llm-plugin'
+import {sanityNotionLLMPlugin} from 'sanity-hermes'
 
 export default defineConfig({
   name: 'default',
   title: 'plugin-project',
 
-  projectId: 'mejvb3fs',
-  dataset: 'production',
+  projectId: process.env.SANITY_STUDIO_PROJECT_ID || '',
+  dataset: process.env.SANITY_STUDIO_DATASET || 'production',
 
   plugins: [structureTool(), visionTool(), sanityNotionLLMPlugin()],
 

@@ -3,8 +3,8 @@ import { Card, Text, Box, Stack, Button, Flex, Badge } from '@sanity/ui';
 import { useEffect, useState } from 'react';
 import { ApiClient } from '../../services/apiClient';
 import { DraftModal } from './DraftModal';
-import type { DraftWithMetadata } from '@sanity-notion-llm/shared';
-import type { NotionPage } from '@sanity-notion-llm/shared';
+import type { DraftWithMetadata } from 'sanity-hermes-shared';
+import type { NotionPage } from 'sanity-hermes-shared';
 import {
   getWeekRangeForDate,
   isDateInWeekRange,

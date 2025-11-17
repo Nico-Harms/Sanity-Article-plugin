@@ -1,5 +1,5 @@
 import { Card, Text, Box, Switch, TextArea, Flex, Stack } from '@sanity/ui';
-import type { DetectedField } from '@sanity-notion-llm/shared';
+import type { DetectedField } from 'sanity-hermes-shared';
 
 interface SimpleFieldCardProps {
   field: DetectedField;

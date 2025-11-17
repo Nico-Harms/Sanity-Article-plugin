@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { PluginConfig } from '@sanity-notion-llm/shared';
+import type { PluginConfig } from 'sanity-hermes-shared';
 import { ApiClient } from '../../services/apiClient';
 
 export function useNotionData(

@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, Text, Box, Grid, Stack } from '@sanity/ui';
 import { useEffect, useState } from 'react';
 import { ApiClient } from '../../services/apiClient';
-import type { DraftStats } from '@sanity-notion-llm/shared';
+import type { DraftStats } from 'sanity-hermes-shared';
 
 interface DashboardStatsProps {
   studioId: string;

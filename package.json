@@ -1,5 +1,5 @@
 {
-  "name": "sanity-notion-llm-plugin",
+  "name": "sanity-hermes",
   "version": "0.1.0",
   "private": true,
   "description": "A reusable Sanity plugin that connects Notion tables with LLM to generate article drafts",
