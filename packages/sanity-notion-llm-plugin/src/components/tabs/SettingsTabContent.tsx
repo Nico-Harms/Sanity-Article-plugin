@@ -62,12 +62,7 @@ export function SettingsTabContent({
             {/* Connection Status - shown after test */}
             <ConnectionStatus
               isConnected={config?.isActive || false}
-              lastTested={
-                config?.errorMessage || config?.isActive
-                  ? new Date()
-                  : undefined
-              }
-              errorMessage={config?.errorMessage}
+              lastTested={config?.isActive ? new Date() : undefined}
               fieldErrors={config?.fieldErrors}
             />
 
