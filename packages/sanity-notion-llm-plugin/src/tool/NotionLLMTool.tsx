@@ -26,10 +26,27 @@ export function NotionLLMTool() {
 
   if (!state.config) {
     return (
-      <Card padding={4}>
-        <Text>
-          Failed to load configuration. Please verify your backend is running.
-        </Text>
+      <Card padding={4} paddingY={5}>
+        <Stack space={3}>
+          <Text size={2} weight="semibold">
+            Welcome to Hermes!
+          </Text>
+          <Text size={1} muted>
+            No configuration found for this Studio. Please go to the Settings
+            tab to configure your Notion, LLM, and Sanity credentials.
+          </Text>
+          <Box
+            padding={2}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              borderRadius: '4px',
+            }}
+          >
+            <Text size={0} muted>
+              Studio ID: {projectId || 'Unknown'}
+            </Text>
+          </Box>
+        </Stack>
       </Card>
     );
   }
@@ -75,6 +92,20 @@ export function NotionLLMTool() {
         }))
       }
       onSaveConfiguration={saveConfig}
+      onClearFieldError={(field) => {
+        updateConfig((current: PluginConfig) => {
+          if (!current.fieldErrors) return current;
+          const newFieldErrors = { ...current.fieldErrors };
+          delete newFieldErrors[field];
+          return {
+            ...current,
+            fieldErrors:
+              Object.keys(newFieldErrors).length > 0
+                ? newFieldErrors
+                : undefined,
+          };
+        });
+      }}
       onTestConnection={async () => {
         try {
           const response = await ApiClient.getNotionData(config.studioId);
@@ -82,14 +113,21 @@ export function NotionLLMTool() {
             ...current,
             isActive: !response.error,
             errorMessage: response.error ?? undefined,
+            fieldErrors: response.fieldErrors ?? {},
           }));
         } catch (error) {
           console.error('[NotionLLMTool] Connection test failed:', error);
+          const fieldErrors =
+            (error as Error & { fieldErrors?: Record<string, string> })
+              .fieldErrors || {};
           updateConfig((current: PluginConfig) => ({
             ...current,
             isActive: false,
             errorMessage:
-              'Connection test failed. Please check your credentials.',
+              error instanceof Error
+                ? error.message
+                : 'Connection test failed. Please check your credentials.',
+            fieldErrors,
           }));
         }
       }}

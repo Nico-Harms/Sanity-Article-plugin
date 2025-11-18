@@ -25,6 +25,7 @@ export interface PluginConfig {
   sanityDataset: string;
   isActive: boolean;
   errorMessage?: string;
+  fieldErrors?: Record<string, string>;
   createdAt?: Date;
   updatedAt?: Date;
   // Custom instruction fields for LLM content generation

@@ -21,11 +21,16 @@ export default defineConfig({
 });
 ```
 
-### 2. Set Backend URL
+### 2. Set Backend URL (Optional)
+
+The plugin connects to the production backend by default. To use a different backend, set:
 
 ```env
-SANITY_STUDIO_BACKEND_URL=https://your-backend-api.com
+SANITY_STUDIO_BACKEND_URL=https://sanity-notion-llm-api.vercel.app
 ```
+
+**Default**: `https://sanity-notion-llm-api.vercel.app` (production)
+**Development**: Set to `http://localhost:3001` if running backend locally
 
 ### 3. Configure in Studio
 

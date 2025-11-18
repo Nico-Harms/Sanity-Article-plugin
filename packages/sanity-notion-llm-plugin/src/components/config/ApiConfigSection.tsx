@@ -7,6 +7,7 @@ interface ApiConfigSectionProps {
   onFieldChange: (field: ConfigFieldKey, value: string) => void;
   onTestConnection: () => void;
   isTesting: boolean;
+  onClearFieldError?: (field: ConfigFieldKey) => void;
 }
 
 const INPUT_FIELDS: Array<{
@@ -98,6 +99,7 @@ export function ApiConfigSection({
   onFieldChange,
   onTestConnection,
   isTesting,
+  onClearFieldError,
 }: ApiConfigSectionProps) {
   // Default to mistral if no provider selected
   const selectedProvider = config.llmProvider || 'mistral';
@@ -118,24 +120,42 @@ export function ApiConfigSection({
           generation.
         </Text>
 
-        {INPUT_FIELDS.map(({ key, label, helper, placeholder, type }) => (
-          <Box key={key}>
-            <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
-              {label}
-            </Text>
-            <TextInput
-              type={type ?? 'text'}
-              placeholder={placeholder}
-              value={config[key] || ''}
-              onChange={(event) =>
-                onFieldChange(key, event.currentTarget.value)
-              }
-            />
-            <Text size={1} muted style={{ marginTop: 4 }}>
-              {helper}
-            </Text>
-          </Box>
-        ))}
+        {INPUT_FIELDS.map(({ key, label, helper, placeholder, type }) => {
+          const fieldError = config.fieldErrors?.[key];
+          const hasError = !!fieldError;
+          return (
+            <Box key={key}>
+              <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
+                {label}
+              </Text>
+              <TextInput
+                type={type ?? 'text'}
+                placeholder={placeholder}
+                value={config[key] || ''}
+                onChange={(event) => {
+                  onFieldChange(key, event.currentTarget.value);
+                  // Clear field error when user starts typing
+                  if (hasError && onClearFieldError) {
+                    onClearFieldError(key);
+                  }
+                }}
+                style={{
+                  borderColor: hasError ? '#e74c3c' : undefined,
+                  borderWidth: hasError ? '2px' : undefined,
+                }}
+              />
+              {hasError ? (
+                <Text size={1} style={{ marginTop: 4, color: '#e74c3c' }}>
+                  {fieldError}
+                </Text>
+              ) : (
+                <Text size={1} muted style={{ marginTop: 4 }}>
+                  {helper}
+                </Text>
+              )}
+            </Box>
+          );
+        })}
 
         <Box>
           <Text size={2} weight="medium" style={{ marginBottom: 6 }}>

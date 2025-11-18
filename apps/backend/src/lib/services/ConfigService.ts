@@ -40,6 +40,7 @@ import { ERROR_MESSAGES } from '@sanity-notion-llm/shared';
 
 const toPluginConfig = (record: ConfigRecord | null): PluginConfig | null => {
   if (!record) return null;
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { _id, ...pluginConfig } = record;
   return {
     ...pluginConfig,
@@ -93,6 +94,19 @@ export const savePluginConfig = async (
   const createdAtValue = createdAt ?? now;
 
   try {
+    const db = await connectToDatabase();
+
+    // Initialize indexes on first save (idempotent - safe to call multiple times)
+    try {
+      await createDatabaseIndexes(db);
+    } catch (indexError) {
+      // Log but don't fail - indexes might already exist
+      console.warn(
+        '[config] Index creation warning (may already exist):',
+        indexError
+      );
+    }
+
     const configs = await getConfigs();
     await configs.findOneAndUpdate(
       { studioId: config.studioId },

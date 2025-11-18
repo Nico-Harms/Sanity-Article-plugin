@@ -12,6 +12,7 @@ interface SettingsTabContentProps {
   onConfigFieldChange: (field: ConfigFieldKey, value: string) => void;
   onSaveConfiguration: () => void;
   onTestConnection: () => void;
+  onClearFieldError?: (field: ConfigFieldKey) => void;
 }
 
 export function SettingsTabContent({
@@ -21,6 +22,7 @@ export function SettingsTabContent({
   onConfigFieldChange,
   onSaveConfiguration,
   onTestConnection,
+  onClearFieldError,
 }: SettingsTabContentProps) {
   return (
     <Stack space={5}>
@@ -34,6 +36,7 @@ export function SettingsTabContent({
         onFieldChange={onConfigFieldChange}
         onTestConnection={onTestConnection}
         isTesting={loading}
+        onClearFieldError={onClearFieldError}
       />
 
       {/* Connection Status */}

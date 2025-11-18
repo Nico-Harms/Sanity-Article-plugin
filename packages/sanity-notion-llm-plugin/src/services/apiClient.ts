@@ -7,11 +7,13 @@ import type {
 } from 'sanity-hermes-shared';
 
 const BACKEND_URL =
-  process.env.SANITY_STUDIO_BACKEND_URL || 'http://localhost:3001';
+  process.env.SANITY_STUDIO_BACKEND_URL ||
+  'https://sanity-notion-llm-api.vercel.app';
 
 export interface ApiResponse<T = any> {
   success?: boolean;
   error?: string;
+  fieldErrors?: Record<string, string>;
   config?: T;
   database?: any;
   pages?: any[];
@@ -40,9 +42,11 @@ export class ApiClient {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(
+        const error = new Error(
           errorData.error || `HTTP ${response.status}: ${response.statusText}`
-        );
+        ) as Error & { fieldErrors?: Record<string, string> };
+        error.fieldErrors = errorData.fieldErrors;
+        throw error;
       }
 
       return await response.json();
@@ -149,5 +153,9 @@ export class ApiClient {
     return this.makeRequest(
       `/api/schema?studioId=${studioId}&typeName=${typeName}`
     );
+  }
+
+  static async checkHealth(): Promise<ApiResponse> {
+    return this.makeRequest('/api/health');
   }
 }
