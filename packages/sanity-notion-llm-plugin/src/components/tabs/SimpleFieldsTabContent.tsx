@@ -57,6 +57,18 @@ export function SimpleFieldsTabContent({
           <Text size={1} muted>
             Choose which Sanity schema to use for content generation
           </Text>
+          <Box
+            padding={2}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              borderRadius: '4px',
+            }}
+          >
+            <Text size={0} muted>
+              A schema needs to have at least one document created for it to
+              show in the Fields selector.
+            </Text>
+          </Box>
           <Select
             value={config?.selectedSchema || ''}
             onChange={(event) => onSchemaChange(event.currentTarget.value)}

@@ -39,33 +39,39 @@ export function SettingsTabContent({
         onClearFieldError={onClearFieldError}
       />
 
-      {/* Connection Status */}
-      <ConnectionStatus
-        isConnected={config?.isActive || false}
-        lastTested={
-          config?.errorMessage || config?.isActive ? new Date() : undefined
-        }
-        errorMessage={config?.errorMessage}
-        fieldErrors={config?.fieldErrors}
-      />
-
       {/* Content Generation Instructions */}
       <InstructionsSection
         config={config}
         onInstructionChange={onConfigFieldChange}
       />
 
-      {/* Unified Save Button */}
+      {/* Save & Connection Status Section */}
       <Box>
         <Card padding={3} border radius={2} shadow={1}>
-          <Stack space={2}>
-            <Text size={2} weight="semibold">
-              Save Configuration
-            </Text>
-            <Text size={1} muted>
-              Save all configuration settings including API credentials and
-              content generation instructions.
-            </Text>
+          <Stack space={4}>
+            <Box>
+              <Text size={2} weight="semibold">
+                Save Configuration
+              </Text>
+              <Text size={1} muted style={{ marginTop: 4 }}>
+                Save all configuration settings including API credentials and
+                content generation instructions.
+              </Text>
+            </Box>
+
+            {/* Connection Status - shown after test */}
+            <ConnectionStatus
+              isConnected={config?.isActive || false}
+              lastTested={
+                config?.errorMessage || config?.isActive
+                  ? new Date()
+                  : undefined
+              }
+              errorMessage={config?.errorMessage}
+              fieldErrors={config?.fieldErrors}
+            />
+
+            {/* Save Button */}
             <Button
               text="Save All Settings"
               style={{ width: '200px' }}
