@@ -1,6 +1,6 @@
 {
   "name": "sanity-hermes",
-  "version": "0.1.6",
+  "version": "0.1.8",
   "description": "A reusable Sanity plugin that connects Notion tables with LLM to generate article drafts",
   "main": "dist/index.js",
   "module": "dist/index.js",

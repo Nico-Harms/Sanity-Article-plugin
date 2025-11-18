@@ -166,36 +166,125 @@ Generate the content now:`;
       .replace(/```\n?/g, '')
       .trim();
 
-    // Try to extract and parse JSON
+    // Try to extract JSON object
     const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       throw new Error('No valid JSON found in response');
     }
 
-    try {
-      const parsed = JSON.parse(jsonMatch[0]);
+    let jsonString = jsonMatch[0];
 
-      // Validate required fields
-      const enabledFields = detectedFields.filter((field) => field.enabled);
-      const missingFields = enabledFields.filter(
-        (field) =>
-          !field.isVirtual &&
-          !Object.prototype.hasOwnProperty.call(parsed, field.name)
+    // Attempt to parse with multiple fallback strategies
+    try {
+      // First attempt: parse as-is
+      const parsed = JSON.parse(jsonString);
+      return this.validateParsedResponse(parsed, detectedFields);
+    } catch (parseError) {
+      // Second attempt: fix unescaped control characters in string values
+      console.warn(
+        '[llm-service] Initial JSON parse failed, attempting to fix control characters:',
+        parseError
       );
 
-      if (missingFields.length > 0) {
-        throw new Error(
-          `Missing required fields: ${missingFields.map((f) => f.name).join(', ')}`
+      try {
+        // Fix unescaped control characters within JSON string values
+        // This regex matches string values (content between quotes) and escapes control chars
+        jsonString = jsonString.replace(
+          /"([^"\\]*(\\.[^"\\]*)*)"/g,
+          (match, content) => {
+            // Skip if already properly escaped or empty
+            if (!content || match.includes('\\n') || match.includes('\\t')) {
+              return match;
+            }
+            // Escape control characters: \n, \r, \t, etc.
+            const escaped = content
+              .replace(/\n/g, '\\n')
+              .replace(/\r/g, '\\r')
+              .replace(/\t/g, '\\t')
+              .replace(/\f/g, '\\f')
+              .replace(/\b/g, '\\b')
+              .replace(/\v/g, '\\v');
+            return `"${escaped}"`;
+          }
         );
-      }
 
-      return parsed as SanityDraftData;
-    } catch (error) {
-      console.error('[llm-service] JSON parsing failed:', error);
+        const parsed = JSON.parse(jsonString);
+        return this.validateParsedResponse(parsed, detectedFields);
+      } catch (secondError) {
+        // Third attempt: more aggressive - fix control chars within string values only
+        try {
+          // Process string values more carefully - escape control chars but preserve structure
+          // This regex handles escaped quotes and backslashes properly
+          jsonString = jsonMatch[0].replace(
+            /"((?:[^"\\]|\\.)*)"/g,
+            (match, content) => {
+              // Only process if content has unescaped control characters
+              if (
+                /[\n\r\t\f\b\v]/.test(content) &&
+                !/\\[nrtfbv]/.test(content)
+              ) {
+                const escaped = content
+                  .replace(/\n/g, '\\n')
+                  .replace(/\r/g, '\\r')
+                  .replace(/\t/g, '\\t')
+                  .replace(/\f/g, '\\f')
+                  .replace(/\b/g, '\\b')
+                  .replace(/\v/g, '\\v');
+                return `"${escaped}"`;
+              }
+              return match;
+            }
+          );
+
+          const parsed = JSON.parse(jsonString);
+          return this.validateParsedResponse(parsed, detectedFields);
+        } catch (finalError) {
+          // Log for debugging
+          console.error('[llm-service] JSON parsing failed after all attempts');
+          console.error(
+            '[llm-service] Original response:',
+            response.substring(0, 500)
+          );
+          console.error(
+            '[llm-service] Extracted JSON:',
+            jsonString.substring(0, 500)
+          );
+          console.error('[llm-service] Parse error:', finalError);
+
+          throw new Error(
+            `Failed to parse LLM response: ${
+              finalError instanceof Error
+                ? finalError.message
+                : 'Invalid JSON format. The LLM may have included unescaped control characters.'
+            }`
+          );
+        }
+      }
+    }
+  }
+
+  /**
+   * Validate parsed response has all required fields
+   */
+  private validateParsedResponse(
+    parsed: unknown,
+    detectedFields: DetectedField[]
+  ): SanityDraftData {
+    // Validate required fields
+    const enabledFields = detectedFields.filter((field) => field.enabled);
+    const missingFields = enabledFields.filter(
+      (field) =>
+        !field.isVirtual &&
+        !Object.prototype.hasOwnProperty.call(parsed, field.name)
+    );
+
+    if (missingFields.length > 0) {
       throw new Error(
-        `Failed to parse LLM response: ${error instanceof Error ? error.message : 'Invalid JSON'}`
+        `Missing required fields: ${missingFields.map((f) => f.name).join(', ')}`
       );
     }
+
+    return parsed as SanityDraftData;
   }
 }
 
