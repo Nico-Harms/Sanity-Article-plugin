@@ -30,6 +30,12 @@ export function SettingsTabContent({
         API Configuration & Settings
       </Text>
 
+      {/* Content Generation Instructions */}
+      <InstructionsSection
+        config={config}
+        onInstructionChange={onConfigFieldChange}
+      />
+
       {/* API Configuration */}
       <ApiConfigSection
         config={config}
@@ -37,12 +43,6 @@ export function SettingsTabContent({
         onTestConnection={onTestConnection}
         isTesting={loading}
         onClearFieldError={onClearFieldError}
-      />
-
-      {/* Content Generation Instructions */}
-      <InstructionsSection
-        config={config}
-        onInstructionChange={onConfigFieldChange}
       />
 
       {/* Save & Connection Status Section */}
