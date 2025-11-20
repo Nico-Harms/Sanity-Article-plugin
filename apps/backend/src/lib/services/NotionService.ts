@@ -492,7 +492,6 @@ export async function updateNotionStatusSafely(
   try {
     const notionClient = createNotionClient(notionClientSecret);
     await notionClient.updatePageStatus(notionPageId, status, propertyName);
-    console.log(`[notion-status] Updated page ${notionPageId} to "${status}"`);
   } catch (error) {
     console.error(
       `[notion-status] Failed to update page ${notionPageId} to "${status}":`,

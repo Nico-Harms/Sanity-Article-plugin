@@ -21,7 +21,6 @@ export async function connectToDatabase(): Promise<Db> {
     await client.connect();
     db = client.db('notion-llm-plugin');
 
-    console.log('[database] Connected to MongoDB successfully');
     return db;
   } catch (error) {
     console.error('[database] Failed to connect to MongoDB:', error);
@@ -34,6 +33,5 @@ export async function closeDatabaseConnection(): Promise<void> {
     await client.close();
     client = null;
     db = null;
-    console.log('[database] MongoDB connection closed');
   }
 }

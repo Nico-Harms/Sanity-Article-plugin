@@ -63,11 +63,7 @@ export async function GET(request: NextRequest) {
 
     // Task 1: Generate week content (Monday only, or if forced for testing)
     if (shouldGenerateWeek) {
-      console.log('[cron] Starting week generation task (Monday)...');
       results.weekGeneration = await generateWeekContent();
-      console.log(
-        `[cron] Week generation completed: ${results.weekGeneration.pagesGenerated} pages generated`
-      );
     } else {
       results.weekGeneration = {
         skipped: true,
@@ -77,11 +73,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Task 2: Publish scheduled content (daily)
-    console.log('[cron] Starting daily publishing task...');
     results.dailyPublishing = await publishScheduledContent();
-    console.log(
-      `[cron] Daily publishing completed: ${results.dailyPublishing.draftsPublished} drafts published`
-    );
 
     return Response.json(results, { status: 200 });
   } catch (error) {

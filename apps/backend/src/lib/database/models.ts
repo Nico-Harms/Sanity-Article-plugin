@@ -114,8 +114,6 @@ export async function createDatabaseIndexes(db: Db): Promise<void> {
     await generations.createIndex({ status: 1 });
     await generations.createIndex({ scheduledDate: 1 });
     await generations.createIndex({ createdAt: 1 });
-
-    console.log('[database] Indexes created successfully');
   } catch (error) {
     console.error('[database] Failed to create indexes:', error);
     throw error;

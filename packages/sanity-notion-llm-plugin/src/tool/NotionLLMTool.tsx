@@ -138,8 +138,8 @@ export function NotionLLMTool() {
     <GenerateTabContent
       studioId={projectId}
       notionPages={notionData.pages}
-      onGenerationComplete={(draft) => {
-        console.log('Generated draft:', draft);
+      onGenerationComplete={() => {
+        // Draft generation completed
       }}
     />
   );
