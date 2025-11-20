@@ -195,6 +195,16 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
     }
   };
 
+  const handleOpenInSanity = (draft: DraftWithMetadata) => {
+    if (!draft.sanityDraftId || !draft._type) {
+      return;
+    }
+
+    const documentId = draft.sanityDraftId.replace(/^drafts\./, '');
+    const studioUrl = `/desk/${draft._type};${documentId}`;
+    window.location.href = studioUrl;
+  };
+
   if (loading) {
     return (
       <Card padding={5} border radius={2}>
@@ -277,6 +287,7 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
               tone="primary"
               mode="ghost"
               size={1}
+              onClick={() => handleOpenInSanity(draft)}
             />
           )}
         </Flex>

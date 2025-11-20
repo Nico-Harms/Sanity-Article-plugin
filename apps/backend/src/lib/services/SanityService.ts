@@ -122,16 +122,22 @@ export class SanityService {
     // Create the published version by removing the drafts. prefix
     const publishedId = documentId.replace('drafts.', '');
 
-    // Create the published document (remove _id to replace it)
+    // Create the published document (remove _id, _rev, _updatedAt to avoid conflicts)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { _id, ...draftWithoutId } = draft;
+    const { _id, _rev, _updatedAt, ...draftWithoutId } = draft;
     const publishedDoc = {
       ...draftWithoutId,
       _id: publishedId,
     };
 
+    console.log(
+      `[SanityService] Publishing draft ${documentId} to ${publishedId}`
+    );
+
     // Create or replace the published document (handles case where published version already exists)
     const result = await this.client.createOrReplace(publishedDoc);
+
+    console.log(`[SanityService] Published document created: ${result._id}`);
 
     // Delete the draft
     await this.client.delete(documentId);

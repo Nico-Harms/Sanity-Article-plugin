@@ -74,9 +74,13 @@ export class SchemaService {
 
   async prepareContentForSchema(
     content: Record<string, any>,
-    schemaType: string
+    schemaType: string,
+    configFields?: SchemaField[]
   ): Promise<Record<string, any>> {
-    const fields = await this.getSchemaFields(schemaType);
+    const fields =
+      configFields && configFields.length > 0
+        ? configFields
+        : await this.getSchemaFields(schemaType);
 
     // Resolve references before preparing content structure
     const resolvedContent = await this.resolveReferences(content, fields);

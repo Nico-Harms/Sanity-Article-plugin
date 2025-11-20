@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { PluginConfig, SchemaType } from 'sanity-hermes-shared';
+import type { Schema } from 'sanity';
+import type {
+  PluginConfig,
+  SchemaType,
+  DetectedField,
+} from 'sanity-hermes-shared';
 import { ApiClient } from '../../services/apiClient';
+import { parseStudioSchema } from '../utils/schema';
 
 export interface PluginConfigState {
   config: PluginConfig | null;
@@ -34,7 +40,7 @@ const createDefaultConfig = (studioId: string): PluginConfig => ({
  * - Manual configuration saving
  * - Schema selection and field detection
  */
-export function usePluginConfig(studioId: string | null) {
+export function usePluginConfig(studioId: string | null, schema?: Schema) {
   const [state, setState] = useState<PluginConfigState>({
     config: null,
     schemaTypes: [],
@@ -69,9 +75,18 @@ export function usePluginConfig(studioId: string | null) {
         if (cancelled) return;
 
         const config = configResp.config ?? createDefaultConfig(studioId);
+        const parsedSchemaTypes =
+          schema && typeof schema.getTypeNames === 'function'
+            ? parseStudioSchema(schema)
+            : [];
+        const resolvedSchemaTypes =
+          parsedSchemaTypes.length > 0
+            ? parsedSchemaTypes
+            : (schemaResp.schemas ?? []);
+
         setState({
           config,
-          schemaTypes: schemaResp.schemas ?? [],
+          schemaTypes: resolvedSchemaTypes,
           loading: false,
           saving: false,
           error: null,
@@ -94,7 +109,7 @@ export function usePluginConfig(studioId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [studioId]);
+  }, [studioId, schema]);
 
   // Update config state
   const updateConfig = useCallback(
@@ -141,24 +156,57 @@ export function usePluginConfig(studioId: string | null) {
     async (schemaName: string | null) => {
       if (!studioId || !state.config) return;
 
-      updateConfig((current) => ({
-        ...current,
-        selectedSchema: schemaName,
-        detectedFields: schemaName ? current.detectedFields : [],
-      }));
+      if (!schemaName) {
+        updateConfig((current) => ({
+          ...current,
+          selectedSchema: null,
+          detectedFields: [],
+        }));
+        return;
+      }
 
-      if (!schemaName) return;
+      const selectedType = state.schemaTypes.find(
+        (type) => type.name === schemaName
+      );
+
+      if (selectedType) {
+        updateConfig((current) => {
+          const existingFields = new Map(
+            current.detectedFields.map((field) => [field.name, field])
+          );
+
+          const mergedFields = selectedType.fields.map((field) => {
+            const existing = existingFields.get(field.name);
+            return {
+              ...field,
+              enabled: existing ? existing.enabled : false,
+              purpose: existing ? existing.purpose : '',
+            } as DetectedField;
+          });
+
+          return {
+            ...current,
+            selectedSchema: schemaName,
+            detectedFields: mergedFields,
+          };
+        });
+        return;
+      }
 
       try {
         const response = await ApiClient.getSchemaFields(studioId, schemaName);
         if (response.fields) {
           updateConfig((current) => ({
             ...current,
-            detectedFields: response.fields!.map((field) => ({
-              ...field,
-              enabled: false,
-              purpose: '',
-            })),
+            selectedSchema: schemaName,
+            detectedFields: response.fields!.map(
+              (field) =>
+                ({
+                  ...field,
+                  enabled: false,
+                  purpose: '',
+                }) as DetectedField
+            ),
           }));
         }
       } catch (error) {
@@ -169,7 +217,7 @@ export function usePluginConfig(studioId: string | null) {
         }));
       }
     },
-    [studioId, state.config, updateConfig]
+    [studioId, state.config, state.schemaTypes, updateConfig]
   );
 
   return {

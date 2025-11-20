@@ -1,5 +1,5 @@
 import { Card, Text, Stack, Box } from '@sanity/ui';
-import { useProjectId } from 'sanity';
+import { useProjectId, useSchema } from 'sanity';
 import { TabbedInterface } from '../components/layout/TabbedInterface';
 import { SimpleFieldsTabContent } from '../components/tabs/SimpleFieldsTabContent';
 import { SettingsTabContent } from '../components/tabs/SettingsTabContent';
@@ -12,8 +12,9 @@ import { ApiClient } from '../services/apiClient';
 
 export function NotionLLMTool() {
   const projectId = useProjectId();
+  const schema = useSchema();
   const { state, updateConfig, saveConfig, setSchema } =
-    usePluginConfig(projectId);
+    usePluginConfig(projectId, schema);
   const notionData = useNotionData(projectId, state.config);
 
   if (state.loading && !state.config) {
@@ -44,7 +45,7 @@ export function NotionLLMTool() {
           >
             <Text size={0} muted>
               Studio ID: {projectId || 'Unknown'}
-            </Text>
+        </Text>
           </Box>
         </Stack>
       </Card>

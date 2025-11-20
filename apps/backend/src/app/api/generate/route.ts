@@ -143,7 +143,8 @@ export async function POST(request: NextRequest) {
 
         const preparedContent = await schemaService.prepareContentForSchema(
           rawContent,
-          schemaType
+          schemaType,
+          config.detectedFields
         );
 
         // Create draft document
