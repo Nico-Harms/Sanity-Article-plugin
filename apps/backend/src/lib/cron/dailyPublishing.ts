@@ -3,8 +3,13 @@ import {
   createSanityContextFromConfig,
   decryptSecret,
 } from '@/lib/services';
-import { getDraftMetadataService } from '@/lib/database/draftMetadata';
+import {
+  getDraftMetadataService,
+  type DraftMetadataService,
+  type DraftMetadata,
+} from '@/lib/database/draftMetadata';
 import { updateNotionStatusSafely } from '@/lib/services/NotionService';
+import type { PluginConfig } from '@sanity-notion-llm/shared';
 
 /*===============================================
 |=          Daily Publishing Task          =
@@ -30,11 +35,27 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
   try {
     const activeConfigs = await getActiveConfigs();
     const today = new Date().toISOString().split('T')[0];
+    console.log(`[cron] Running daily publishing for date: ${today}`);
+
     const draftMetadataService = await getDraftMetadataService();
 
     // Get all approved drafts scheduled for today
     const draftsToPublish =
       await draftMetadataService.findDraftsForPublishing(today);
+
+    console.log(
+      `[cron] Found ${draftsToPublish.length} drafts to publish for ${today}`
+    );
+    if (draftsToPublish.length > 0) {
+      console.log(
+        '[cron] Drafts to publish:',
+        draftsToPublish.map((d) => ({
+          id: d._id,
+          sanityId: d.sanityDraftId,
+          studioId: d.studioId,
+        }))
+      );
+    }
 
     // Group drafts by studioId
     const draftsByStudio = new Map<string, typeof draftsToPublish>();
@@ -54,51 +75,14 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
       }
 
       try {
-        // Validate Sanity configuration
-        if (!config.sanityProjectId || !config.sanityToken) {
-          stats.errors.push(
-            `[${config.studioId}] Missing Sanity configuration`
-          );
-          continue;
-        }
+        const result = await publishDraftsForStudio(
+          config,
+          studioDrafts,
+          draftMetadataService
+        );
 
-        const sanityContext = createSanityContextFromConfig(config);
-
-        // Publish each draft
-        for (const draft of studioDrafts) {
-          try {
-            await sanityContext.service.publishDraft(draft.sanityDraftId);
-            await draftMetadataService.updateStatus(
-              draft.sanityDraftId,
-              'published'
-            );
-
-            // Update Notion page status to "Published" (best-effort)
-            if (draft.notionPageId && config.notionClientSecret) {
-              const notionClientSecret = decryptSecret(
-                config.notionClientSecret
-              );
-              await updateNotionStatusSafely(
-                draft.notionPageId,
-                'Published',
-                notionClientSecret
-              );
-            }
-
-            stats.draftsPublished++;
-          } catch (error) {
-            const errorMessage =
-              error instanceof Error ? error.message : 'Unknown error';
-            stats.errors.push(
-              `Failed to publish draft ${draft.sanityDraftId}: ${errorMessage}`
-            );
-            console.error(
-              `[cron] Failed to publish draft ${draft.sanityDraftId}:`,
-              error
-            );
-          }
-        }
-
+        stats.draftsPublished += result.publishedCount;
+        stats.errors.push(...result.errors);
         stats.studiosProcessed++;
       } catch (error) {
         const errorMessage =
@@ -118,4 +102,56 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
   }
 
   return stats;
+}
+
+/**
+ * Helper to publish drafts for a single studio
+ */
+async function publishDraftsForStudio(
+  config: PluginConfig,
+  drafts: DraftMetadata[],
+  draftMetadataService: DraftMetadataService
+): Promise<{ publishedCount: number; errors: string[] }> {
+  const errors: string[] = [];
+  let publishedCount = 0;
+
+  // Validate Sanity configuration
+  if (!config.sanityProjectId || !config.sanityToken) {
+    errors.push(`[${config.studioId}] Missing Sanity configuration`);
+    return { publishedCount, errors };
+  }
+
+  const sanityContext = createSanityContextFromConfig(config);
+
+  // Publish each draft
+  for (const draft of drafts) {
+    try {
+      await sanityContext.service.publishDraft(draft.sanityDraftId);
+      await draftMetadataService.updateStatus(draft.sanityDraftId, 'published');
+
+      // Update Notion page status to "Published" (best-effort)
+      if (draft.notionPageId && config.notionClientSecret) {
+        const notionClientSecret = decryptSecret(config.notionClientSecret);
+        await updateNotionStatusSafely(
+          draft.notionPageId,
+          'Published',
+          notionClientSecret
+        );
+      }
+
+      publishedCount++;
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      errors.push(
+        `Failed to publish draft ${draft.sanityDraftId}: ${errorMessage}`
+      );
+      console.error(
+        `[cron] Failed to publish draft ${draft.sanityDraftId}:`,
+        error
+      );
+    }
+  }
+
+  return { publishedCount, errors };
 }

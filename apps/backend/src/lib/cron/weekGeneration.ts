@@ -36,7 +36,6 @@ export interface WeekGenerationResult {
  * Generate draft for a single Notion page
  */
 async function generateDraftForPage(
-  studioId: string,
   notionPageId: string,
   config: PluginConfig
 ): Promise<{ success: boolean; error?: string }> {
@@ -53,84 +52,24 @@ async function generateDraftForPage(
     const notionClientSecret = decryptSecret(config.notionClientSecret);
     const llmApiKey = decryptSecret(config.llmApiKey);
 
-    // Create Notion client and fetch page data
-    const notionClient = new Client({ auth: notionClientSecret });
-
-    const notionPage = await notionClient.pages.retrieve({
-      page_id: notionPageId,
-    });
-
-    // Check if it's a full page response with properties
-    if (!('properties' in notionPage)) {
-      return { success: false, error: 'Page not found or not accessible' };
-    }
-
-    // Fetch the actual page content (notes/content tab)
-    const notionService = createNotionClient(notionClientSecret);
-    const pageContent = await notionService.getPageContent(notionPageId);
-
-    // Extract content from Notion page properties
-    const notionPageData: NotionPageData = {
-      id: notionPage.id,
-      properties: notionPage.properties,
-      content: pageContent,
-      subject: extractSubjectFromProperties(notionPage.properties),
-    };
-
-    // Create LLM service and generate article
-    const llmProvider = config.llmProvider || 'mistral'; // Default to mistral for backward compatibility
-    const llmService = createLLMService(llmProvider, llmApiKey, config.llmModel);
-
-    const draft = await llmService.generateArticle(
-      notionPageData,
-      config.detectedFields,
-      config.selectedSchema || 'article',
-      config
+    // 1. Fetch Notion Data
+    const notionPageData = await fetchPageData(
+      notionPageId,
+      notionClientSecret
     );
 
-    // Create Sanity draft document
+    // 2. Generate Content with LLM
+    const draftContent = await generateContent(
+      notionPageData,
+      config,
+      llmApiKey
+    );
+
+    // 3. Create Draft in Sanity & Track Metadata
     if (config.sanityProjectId && config.sanityToken) {
-      const sanityContext = createSanityContextFromConfig(config);
-      const schemaService = createSchemaService(
-        sanityContext.projectId,
-        sanityContext.token,
-        sanityContext.dataset
-      );
+      await createAndTrackSanityDraft(config, draftContent, notionPageData);
 
-      // Prepare content for the specific schema
-      const schemaType = config.selectedSchema || 'article';
-      const rawContent = {
-        ...draft,
-        publishDate: notionPageData.properties.Date,
-      };
-
-      const preparedContent = await schemaService.prepareContentForSchema(
-        rawContent,
-        schemaType
-      );
-
-      // Create draft document
-      const sanityDoc = await sanityContext.service.createDraft(
-        schemaType,
-        preparedContent
-      );
-
-      // Create draft metadata for tracking
-      const draftMetadataService = await getDraftMetadataService();
-      const plannedDate = extractPlannedDateFromNotion(notionPageData);
-
-      await draftMetadataService.createDraftMetadata({
-        notionPageId,
-        sanityDraftId: sanityDoc._id,
-        sanityDocumentType: schemaType,
-        studioId,
-        status: 'pending_review',
-        plannedPublishDate:
-          plannedDate || new Date().toISOString().split('T')[0],
-        generatedAt: new Date(),
-      });
-
-      // Update Notion page status to "In progress" (best-effort)
+      // 4. Update Notion Status
       await updateNotionStatusSafely(
         notionPageId,
         'In progress',
@@ -149,6 +88,98 @@ async function generateDraftForPage(
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
+}
+
+// --- Helper Functions ---
+
+async function fetchPageData(
+  notionPageId: string,
+  notionClientSecret: string
+): Promise<NotionPageData> {
+  const notionClient = new Client({ auth: notionClientSecret });
+
+  const notionPage = await notionClient.pages.retrieve({
+    page_id: notionPageId,
+  });
+
+  // Check if it's a full page response with properties
+  if (!('properties' in notionPage)) {
+    throw new Error('Page not found or not accessible');
+  }
+
+  // Fetch the actual page content (notes/content tab)
+  const notionService = createNotionClient(notionClientSecret);
+  const pageContent = await notionService.getPageContent(notionPageId);
+
+  return {
+    id: notionPage.id,
+    properties: notionPage.properties,
+    content: pageContent,
+    subject: extractSubjectFromProperties(notionPage.properties),
+  };
+}
+
+async function generateContent(
+  pageData: NotionPageData,
+  config: PluginConfig,
+  llmApiKey: string
+) {
+  const llmProvider = config.llmProvider || 'mistral'; // Default to mistral for backward compatibility
+  const llmService = createLLMService(llmProvider, llmApiKey, config.llmModel);
+
+  return llmService.generateArticle(
+    pageData,
+    config.detectedFields,
+    config.selectedSchema || 'article',
+    config
+  );
+}
+
+async function createAndTrackSanityDraft(
+  config: PluginConfig,
+  draftContent: any,
+  pageData: NotionPageData
+) {
+  const sanityContext = createSanityContextFromConfig(config);
+  const schemaService = createSchemaService(
+    sanityContext.projectId,
+    sanityContext.token,
+    sanityContext.dataset
+  );
+
+  // Prepare content for the specific schema
+  const schemaType = config.selectedSchema || 'article';
+  const rawContent = {
+    ...draftContent,
+    publishDate: pageData.properties.Date,
+  };
+
+  const preparedContent = await schemaService.prepareContentForSchema(
+    rawContent,
+    schemaType
+  );
+
+  // Create draft document
+  const sanityDoc = await sanityContext.service.createDraft(
+    schemaType,
+    preparedContent
+  );
+
+  // Create draft metadata for tracking
+  const draftMetadataService = await getDraftMetadataService();
+  const plannedDate = extractPlannedDateFromNotion(pageData);
+
+  await draftMetadataService.createDraftMetadata({
+    notionPageId: pageData.id,
+    sanityDraftId: sanityDoc._id,
+    sanityDocumentType: schemaType,
+    studioId: config.studioId,
+    status: 'pending_review',
+    plannedPublishDate: plannedDate || new Date().toISOString().split('T')[0],
+    generatedAt: new Date(),
+  });
+
+  return sanityDoc;
 }
 
 /**
@@ -221,11 +252,7 @@ export async function generateWeekContent(): Promise<WeekGenerationResult> {
 
         // Generate drafts for eligible pages
         for (const page of eligiblePages) {
-          const result = await generateDraftForPage(
-            config.studioId,
-            page.id,
-            config
-          );
+          const result = await generateDraftForPage(page.id, config);
 
           if (result.success) {
             stats.pagesGenerated++;

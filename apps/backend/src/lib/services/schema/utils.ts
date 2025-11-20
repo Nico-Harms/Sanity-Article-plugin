@@ -85,12 +85,39 @@ export function ensureArrayItemHasKey<T>(item: T): T {
     return item;
   }
 
-  const record = item as Record<string, unknown>;
+  let record = item as Record<string, unknown>;
+
+  // Auto-fix: LLM sometimes wraps module objects like { "quoteModule": { ... } }
+  // instead of { "_type": "quoteModule", ... }
+  // This happens often with flexible content arrays
+  const keys = Object.keys(record).filter((k) => k !== '_key');
+  if (keys.length === 1) {
+    const possibleType = keys[0];
+    const content = record[possibleType];
+
+    // If the content is an object and seems to be wrapped
+    if (content && typeof content === 'object' && !Array.isArray(content)) {
+      // Unwrap it and use the key as _type
+      const unwrappedContent = content as Record<string, unknown>;
+
+      // Only apply if the unwrapped content doesn't already have a conflicting _type
+      // or if it matches
+      if (!unwrappedContent._type || unwrappedContent._type === possibleType) {
+        record = {
+          ...unwrappedContent,
+          _type: possibleType,
+          // Preserve _key if it existed on the wrapper
+          _key: typeof record._key === 'string' ? record._key : undefined,
+        };
+      }
+    }
+  }
+
   if (typeof record._key !== 'string' || record._key.length === 0) {
     record._key = generateKey();
   }
 
-  return item;
+  return record as T;
 }
 
 export function mergeFields(
