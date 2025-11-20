@@ -46,16 +46,6 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
     console.log(
       `[cron] Found ${draftsToPublish.length} drafts to publish for ${today}`
     );
-    if (draftsToPublish.length > 0) {
-      console.log(
-        '[cron] Drafts to publish:',
-        draftsToPublish.map((d) => ({
-          id: d._id,
-          sanityId: d.sanityDraftId,
-          studioId: d.studioId,
-        }))
-      );
-    }
 
     // Group drafts by studioId
     const draftsByStudio = new Map<string, typeof draftsToPublish>();
@@ -67,6 +57,17 @@ export async function publishScheduledContent(): Promise<DailyPublishingResult> 
     }
 
     // Process each studio
+    const activeStudioIds = new Set(activeConfigs.map((c) => c.studioId));
+
+    // Check for orphaned drafts (drafts for studios without active config)
+    for (const studioId of draftsByStudio.keys()) {
+      if (!activeStudioIds.has(studioId)) {
+        console.warn(
+          `[cron] Warning: Found drafts for studio ${studioId} but no active configuration found. Skipping publishing for this studio.`
+        );
+      }
+    }
+
     for (const config of activeConfigs) {
       const studioDrafts = draftsByStudio.get(config.studioId) || [];
 

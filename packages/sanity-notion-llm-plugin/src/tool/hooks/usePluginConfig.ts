@@ -147,8 +147,11 @@ export function usePluginConfig(studioId: string | null, schema?: Schema) {
   const saveConfig = useCallback(async () => {
     if (!studioId) return;
     const snapshot = state.config ?? createDefaultConfig(studioId);
+    // Ensure isActive is true when saving
+    const configToSave = { ...snapshot, isActive: true };
+
     setState((prev) => ({ ...prev, saving: true, error: null }));
-    await persist(snapshot);
+    await persist(configToSave);
   }, [persist, state.config, studioId]);
 
   // Update schema and fetch detected fields
