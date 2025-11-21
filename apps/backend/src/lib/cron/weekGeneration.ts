@@ -3,6 +3,7 @@ import type {
   PluginConfig,
   NotionPageData,
   NotionPage,
+  SanityDraftData,
 } from '@sanity-notion-llm/shared';
 import {
   getActiveConfigs,
@@ -123,7 +124,7 @@ async function generateContent(
   pageData: NotionPageData,
   config: PluginConfig,
   llmApiKey: string
-) {
+): Promise<SanityDraftData> {
   const llmProvider = config.llmProvider || 'mistral'; // Default to mistral for backward compatibility
   const llmService = createLLMService(llmProvider, llmApiKey, config.llmModel);
 
@@ -137,7 +138,7 @@ async function generateContent(
 
 async function createAndTrackSanityDraft(
   config: PluginConfig,
-  draftContent: any,
+  draftContent: SanityDraftData,
   pageData: NotionPageData
 ) {
   const sanityContext = createSanityContextFromConfig(config);
@@ -149,9 +150,9 @@ async function createAndTrackSanityDraft(
 
   // Prepare content for the specific schema
   const schemaType = config.selectedSchema || 'article';
-  const rawContent = {
+  const rawContent: SanityDraftData = {
     ...draftContent,
-    publishDate: pageData.properties.Date,
+    publishDate: extractPlannedDateFromNotion(pageData) ?? undefined,
   };
 
   const preparedContent = await schemaService.prepareContentForSchema(

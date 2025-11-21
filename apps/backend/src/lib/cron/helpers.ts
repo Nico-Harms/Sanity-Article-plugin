@@ -74,8 +74,24 @@ export function extractPlannedDateFromNotion(
 
   for (const fieldName of dateFields) {
     const field = notionPageData.properties?.[fieldName];
-    if (field && field.type === 'date' && field.date) {
-      return field.date.start;
+    if (
+      field &&
+      typeof field === 'object' &&
+      'type' in field &&
+      field.type === 'date' &&
+      'date' in field &&
+      field.date
+    ) {
+      const start =
+        typeof field.date === 'object' &&
+        field.date !== null &&
+        'start' in field.date &&
+        typeof field.date.start === 'string'
+          ? field.date.start
+          : null;
+      if (start) {
+        return start;
+      }
     }
   }
 
@@ -101,8 +117,24 @@ export function extractPlannedDateFromNotionPage(
   // Fallback to raw properties
   for (const fieldName of dateFields) {
     const property = page.properties?.[fieldName];
-    if (property && property.type === 'date' && property.date) {
-      return property.date.start || null;
+    if (
+      property &&
+      typeof property === 'object' &&
+      'type' in property &&
+      property.type === 'date' &&
+      'date' in property &&
+      property.date
+    ) {
+      const start =
+        typeof property.date === 'object' &&
+        property.date !== null &&
+        'start' in property.date &&
+        typeof property.date.start === 'string'
+          ? property.date.start
+          : null;
+      if (start) {
+        return start;
+      }
     }
   }
 

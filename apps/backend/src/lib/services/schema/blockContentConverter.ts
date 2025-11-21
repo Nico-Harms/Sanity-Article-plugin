@@ -6,16 +6,16 @@
  * link annotation format with proper marks and markDefs.
  */
 
-type SanitySpan = {
-  _type: 'span';
-  _key: string;
-  text: string;
-  marks: string[];
-};
+import type {
+  PortableTextBlock,
+  PortableTextSpan,
+  PortableTextMarkDefinition,
+} from '@portabletext/types';
 
-type SanityLinkDef = {
+type SanitySpan = PortableTextSpan & { _key: string };
+
+type SanityLinkDef = PortableTextMarkDefinition & {
   _type: 'link';
-  _key: string;
   href: string;
 };
 
@@ -84,7 +84,9 @@ function parseMarkdownLinks(text: string): {
   return { children, markDefs };
 }
 
-export function convertStringToBlockContent(text: unknown): any[] {
+export function convertStringToBlockContent(
+  text: unknown
+): PortableTextBlock[] {
   if (!text || typeof text !== 'string') {
     return [];
   }
@@ -109,19 +111,19 @@ export function convertStringToBlockContent(text: unknown): any[] {
 
       const { children, markDefs } = parseMarkdownLinks(cleanParagraph);
 
-      const block: any = {
+      const block: PortableTextBlock = {
         _type: 'block',
         _key: generateKey(),
         style: 'normal',
+        markDefs,
         children,
       };
 
-      if (markDefs.length > 0) {
-        block.markDefs = markDefs;
+      if (markDefs.length === 0) {
+        delete block.markDefs;
       }
 
       return block;
     })
-    .filter(Boolean);
+    .filter((block): block is PortableTextBlock => Boolean(block));
 }
-

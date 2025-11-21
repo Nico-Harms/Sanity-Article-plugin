@@ -1,12 +1,12 @@
 export interface NotionPageData {
   id: string;
-  properties: Record<string, any>;
+  properties: Record<string, unknown>;
   content: string; // Main content field
   subject: string; // Topic/subject field
 }
 
 export interface SanityDraftData {
-  [fieldName: string]: any; // Dynamic based on schema
+  [fieldName: string]: unknown; // Dynamic based on schema
 }
 
 export interface GenerateRequest {

@@ -25,8 +25,24 @@ function extractPlannedDateFromNotion(notionPageData: NotionPageData): string {
 
   for (const fieldName of dateFields) {
     const field = notionPageData.properties?.[fieldName];
-    if (field && field.type === 'date' && field.date) {
-      return field.date.start;
+    if (
+      field &&
+      typeof field === 'object' &&
+      'type' in field &&
+      field.type === 'date' &&
+      'date' in field &&
+      field.date
+    ) {
+      const start =
+        typeof field.date === 'object' &&
+        field.date !== null &&
+        'start' in field.date &&
+        typeof field.date.start === 'string'
+          ? field.date.start
+          : null;
+      if (start) {
+        return start;
+      }
     }
   }
 
@@ -138,7 +154,7 @@ export async function POST(request: NextRequest) {
         const schemaType = config.selectedSchema || 'article';
         const rawContent = {
           ...draft,
-          publishDate: notionPageData.properties.Date, // from Notion
+          publishDate: extractPlannedDateFromNotion(notionPageData),
         };
 
         const preparedContent = await schemaService.prepareContentForSchema(

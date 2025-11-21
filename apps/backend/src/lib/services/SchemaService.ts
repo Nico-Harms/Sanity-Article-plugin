@@ -7,6 +7,20 @@ import {
 } from './schema/inference';
 import { prepareContentForFields } from './schema/reconstruction';
 
+type SanityReference = {
+  _type: 'reference';
+  _ref: string;
+  _key?: string;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const isSanityReference = (value: unknown): value is SanityReference =>
+  isRecord(value) &&
+  value._type === 'reference' &&
+  typeof value._ref === 'string';
+
 export class SchemaService {
   private client: SanityClient;
 
@@ -73,10 +87,10 @@ export class SchemaService {
   }
 
   async prepareContentForSchema(
-    content: Record<string, any>,
+    content: Record<string, unknown>,
     schemaType: string,
     configFields?: SchemaField[]
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const fields =
       configFields && configFields.length > 0
         ? configFields
@@ -92,9 +106,9 @@ export class SchemaService {
    * Resolve reference fields by looking up documents by title/name
    */
   private async resolveReferences(
-    content: Record<string, any>,
+    content: Record<string, unknown>,
     fields: SchemaField[]
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, unknown>> {
     const processedContent = { ...content };
 
     for (const field of fields) {
@@ -139,12 +153,14 @@ export class SchemaService {
   private async findOrCreateReference(
     fieldName: string,
     value: string
-  ): Promise<any | null> {
+  ): Promise<SanityReference | null> {
     try {
       // 1. Try to find existing document (global search)
       // Case-insensitive matching on name or title
       // Explicitly exclude system docs and drafts
-      const existingDocs = await this.client.fetch(
+      const existingDocs = await this.client.fetch<
+        { _id: string; _type: string }[]
+      >(
         `*[
           !(_id in path("drafts.**")) && 
           !(_type match "system.**") &&
@@ -158,7 +174,7 @@ export class SchemaService {
         // e.g. if field is 'author', prefer type 'author'
         const typeGuess = this.guessTypeFromFieldName(fieldName);
         const bestMatch =
-          existingDocs.find((doc: any) => doc._type === typeGuess) ||
+          existingDocs.find((doc) => doc._type === typeGuess) ||
           existingDocs[0];
         return {
           _type: 'reference',
@@ -197,14 +213,17 @@ export class SchemaService {
         // 3. Fallback: Try to find ANY document of this type
         // "Hvis ikke den kan oprette nogen, så skal den vælge den mest oplagte."
         try {
-          const anyDoc = await this.client.fetch(`*[_type == $type][0]._id`, {
-            type: typeToCreate,
-          });
-          if (anyDoc) {
+          const fallbackDoc = await this.client.fetch<string | null>(
+            `*[_type == $type][0]._id`,
+            {
+              type: typeToCreate,
+            }
+          );
+          if (fallbackDoc) {
             console.log(
               `[schema-service] Using fallback document for ${typeToCreate}`
             );
-            return { _type: 'reference', _ref: anyDoc };
+            return { _type: 'reference', _ref: fallbackDoc };
           }
         } catch (e) {
           /* ignore */
@@ -233,9 +252,9 @@ export class SchemaService {
    * Helper to resolve references within an array
    */
   private async resolveArrayReferences(
-    content: Record<string, any>,
+    content: Record<string, unknown>,
     field: SchemaField,
-    value: any[],
+    value: unknown[],
     allFields: SchemaField[]
   ): Promise<void> {
     // Check if the array should contain references
@@ -245,7 +264,7 @@ export class SchemaService {
     );
 
     if (itemField) {
-      const resolvedItems = [];
+      const resolvedItems: SanityReference[] = [];
       for (const item of value) {
         if (typeof item === 'string') {
           const resolved = await this.findOrCreateReference(field.name, item);
@@ -256,7 +275,7 @@ export class SchemaService {
               _key: Math.random().toString(36).substring(2, 15),
             });
           }
-        } else if (item && typeof item === 'object' && item._ref) {
+        } else if (isSanityReference(item)) {
           // Already a reference object, keep it
           resolvedItems.push(item);
         }

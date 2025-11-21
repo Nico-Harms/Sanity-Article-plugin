@@ -1,5 +1,7 @@
 import { createClient, SanityClient } from '@sanity/client';
 
+type SanityDocument = Record<string, unknown> & { _id: string };
+
 /*===============================================
 |=                SanityService                 =
 ===============================================*/
@@ -51,7 +53,10 @@ export class SanityService {
   }
 
   // Create a draft document
-  async createDraft(schemaType: string, document: Record<string, any>) {
+  async createDraft(
+    schemaType: string,
+    document: Record<string, unknown>
+  ): Promise<SanityDocument> {
     // Generate a random ID and prefix with 'drafts.' to ensure it's saved as a draft
     const draftId = `drafts.${this.generateId()}`;
 
@@ -63,7 +68,7 @@ export class SanityService {
       _rejected: false,
     };
 
-    return this.client.create(docWithMeta);
+    return this.client.create(docWithMeta) as Promise<SanityDocument>;
   }
 
   // Generate a random ID for draft documents
@@ -82,9 +87,10 @@ export class SanityService {
   }
 
   // Fetch a document by ID (draft or published)
-  async getDocument(documentId: string) {
+  async getDocument(documentId: string): Promise<SanityDocument | null> {
     try {
-      return await this.client.getDocument(documentId);
+      const doc = await this.client.getDocument<SanityDocument>(documentId);
+      return doc ?? null;
     } catch (error) {
       console.warn(`[sanity] Document ${documentId} not found:`, error);
       return null;
@@ -112,9 +118,9 @@ export class SanityService {
   }
 
   // Publish a draft (remove drafts. prefix to make it published)
-  async publishDraft(documentId: string) {
+  async publishDraft(documentId: string): Promise<SanityDocument> {
     // First, get the draft document
-    const draft = await this.client.getDocument(documentId);
+    const draft = await this.client.getDocument<SanityDocument>(documentId);
     if (!draft) {
       throw new Error(`Draft document ${documentId} not found`);
     }
@@ -142,7 +148,7 @@ export class SanityService {
     // Delete the draft
     await this.client.delete(documentId);
 
-    return result;
+    return result as SanityDocument;
   }
 }
 

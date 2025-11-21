@@ -3,8 +3,13 @@ import type {
   GetPageResponse,
   PageObjectResponse,
   RichTextItemResponse,
+  UpdatePageParameters,
 } from '@notionhq/client/build/src/api-endpoints';
-import type { NotionPage, NotionDatabase } from '@sanity-notion-llm/shared';
+import type {
+  NotionPage,
+  NotionDatabase,
+  NotionPropertyValue,
+} from '@sanity-notion-llm/shared';
 import { NOTION_DEFAULTS, ERROR_MESSAGES } from '@sanity-notion-llm/shared';
 
 /*===============================================
@@ -35,6 +40,47 @@ import { NOTION_DEFAULTS, ERROR_MESSAGES } from '@sanity-notion-llm/shared';
  */
 
 /*===============================================
+=          Utility helpers           =
+===============================================*/
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const isRichTextArray = (value: unknown): value is RichTextItemResponse[] =>
+  Array.isArray(value);
+
+const getRichTextAsString = (value: unknown): string =>
+  isRichTextArray(value)
+    ? value.map((text) => text.plain_text || '').join('')
+    : '';
+
+const getMultiSelectNames = (value: unknown): string[] =>
+  Array.isArray(value)
+    ? value
+        .map((item) =>
+          isRecord(item) && typeof item.name === 'string' ? item.name : null
+        )
+        .filter((name): name is string => Boolean(name))
+    : [];
+
+const getPlainTextFromArray = (value: unknown): string =>
+  Array.isArray(value)
+    ? value
+        .map((item) =>
+          isRecord(item) && typeof item.plain_text === 'string'
+            ? item.plain_text
+            : ''
+        )
+        .join(' ')
+    : '';
+
+const getSelectName = (value: unknown): string | null =>
+  isRecord(value) && typeof value.name === 'string' ? value.name : null;
+
+const getDateStart = (value: unknown): string | null =>
+  isRecord(value) && typeof value.start === 'string' ? value.start : null;
+
+/*===============================================
 =          Is full page response           =
 ===============================================*/
 
@@ -46,36 +92,35 @@ const isFullPageResponse = (
 =          Extract property value           =
 ===============================================*/
 
-const extractPropertyValue = (property: any): any => {
-  if (!property || !property.type) return null;
+const extractPropertyValue = (
+  property: NotionPropertyValue | undefined
+): unknown => {
+  if (!property || typeof property.type !== 'string') {
+    return null;
+  }
 
   switch (property.type) {
     case 'title':
-      return (
-        property.title
-          ?.map((t: RichTextItemResponse) => t.plain_text)
-          .join('') || ''
-      );
+      return getRichTextAsString(property.title);
     case 'rich_text':
-      return (
-        property.rich_text
-          ?.map((t: RichTextItemResponse) => t.plain_text)
-          .join('') || ''
-      );
+      return getRichTextAsString(property.rich_text);
     case 'select':
-      return property.select?.name || null;
+      return getSelectName(property.select);
     case 'multi_select':
-      return property.multi_select?.map((item: any) => item.name) || [];
+      return getMultiSelectNames(property.multi_select);
     case 'date':
-      return property.date?.start || null;
+      return getDateStart(property.date);
     case 'number':
-      return property.number;
+      return typeof property.number === 'number' ? property.number : null;
     case 'checkbox':
-      return property.checkbox;
+      return typeof property.checkbox === 'boolean' ? property.checkbox : null;
     case 'status':
-      return property.status?.name || null;
+      return getSelectName(property.status);
     default:
-      return property[property.type] || null;
+      if (isRecord(property)) {
+        return property[property.type] ?? null;
+      }
+      return null;
   }
 };
 
@@ -101,7 +146,7 @@ const formatDatabaseId = (databaseId: string): string => {
 ===============================================*/
 
 const mapPropertyValues = (
-  properties: Record<string, any> | undefined
+  properties: Record<string, NotionPropertyValue> | undefined
 ): Record<string, unknown> => {
   return Object.keys(properties || {}).reduce<Record<string, unknown>>(
     (acc, key) => {
@@ -116,10 +161,17 @@ const mapNotionPage = (
   page: PageObjectResponse,
   content?: string
 ): NotionPage => {
-  const rawProperties = (page.properties || {}) as Record<string, any>;
+  const rawProperties = (page.properties || {}) as Record<
+    string,
+    NotionPropertyValue
+  >;
+  const titleCandidate =
+    (extractPropertyValue(rawProperties?.Name) as string | null | undefined) ??
+    (extractPropertyValue(rawProperties?.Title) as string | null | undefined);
   const title =
-    extractPropertyValue(rawProperties?.Name || rawProperties?.Title) ||
-    NOTION_DEFAULTS.UNTITLED_PAGE;
+    typeof titleCandidate === 'string' && titleCandidate.trim().length > 0
+      ? titleCandidate
+      : NOTION_DEFAULTS.UNTITLED_PAGE;
 
   return {
     id: page.id,
@@ -188,13 +240,22 @@ export const createNotionClient = (apiKey: string): NotionClient => {
         database_id: formattedId,
       });
 
+      const responseWithProps = response as {
+        title?: RichTextItemResponse[];
+        properties?: Record<string, NotionPropertyValue>;
+      };
+
       return {
         id: response.id,
-        title: (response as any).title || 'Untitled Database',
-        properties: Object.keys((response as any).properties || {}).reduce<
-          Record<string, unknown>
+        title:
+          getRichTextAsString(responseWithProps.title) || 'Untitled Database',
+        properties: Object.keys(responseWithProps.properties || {}).reduce<
+          Record<string, NotionPropertyValue>
         >((acc, key) => {
-          acc[key] = (response as any).properties[key];
+          const value = responseWithProps.properties?.[key];
+          if (value) {
+            acc[key] = value;
+          }
           return acc;
         }, {}),
       };
@@ -264,7 +325,7 @@ export const createNotionClient = (apiKey: string): NotionClient => {
         throw new Error(ERROR_MESSAGES.NOTION_PAGE_UNEXPECTED_SHAPE);
       }
 
-      const properties = page.properties as Record<string, any>;
+      const properties = page.properties as Record<string, NotionPropertyValue>;
       const property = properties[propertyName];
 
       if (!property) {
@@ -283,9 +344,13 @@ export const createNotionClient = (apiKey: string): NotionClient => {
         throw new Error(ERROR_MESSAGES.NOTION_STATUS_PROPERTY_UNSUPPORTED);
       }
 
+      const propertyPayload = {
+        [propertyName]: propertyUpdate,
+      } as UpdatePageParameters['properties'];
+
       await client.pages.update({
         page_id: pageId,
-        properties: { [propertyName]: propertyUpdate } as Record<string, any>,
+        properties: propertyPayload,
       });
 
       const updatedPage = await client.pages.retrieve({ page_id: pageId });
@@ -294,7 +359,10 @@ export const createNotionClient = (apiKey: string): NotionClient => {
         return null;
       }
 
-      const updatedProperties = updatedPage.properties as Record<string, any>;
+      const updatedProperties = updatedPage.properties as Record<
+        string,
+        NotionPropertyValue
+      >;
 
       return mapNotionPage({
         ...updatedPage,
@@ -404,7 +472,7 @@ export const createNotionClient = (apiKey: string): NotionClient => {
  * Looks for common content fields like "Content", "Body", "Description", etc.
  */
 export function extractContentFromProperties(
-  properties: Record<string, any>
+  properties: Record<string, NotionPropertyValue>
 ): string {
   const contentFields = [
     'Content ',
@@ -418,14 +486,14 @@ export function extractContentFromProperties(
   for (const field of contentFields) {
     const property = properties[field];
     if (property) {
-      if (property.type === 'rich_text' && property.rich_text) {
-        return property.rich_text.map((text: any) => text.plain_text).join(' ');
+      if (property.type === 'rich_text') {
+        return getRichTextAsString(property.rich_text);
       }
-      if (property.type === 'title' && property.title) {
-        return property.title.map((text: any) => text.plain_text).join(' ');
+      if (property.type === 'title') {
+        return getPlainTextFromArray(property.title);
       }
-      if (property.type === 'text' && property.text) {
-        return property.text.map((text: any) => text.plain_text).join(' ');
+      if (property.type === 'text') {
+        return getPlainTextFromArray(property.text);
       }
     }
   }
@@ -433,11 +501,13 @@ export function extractContentFromProperties(
   // Fallback: return first available text content
   for (const [, property] of Object.entries(properties)) {
     if (property && typeof property === 'object') {
-      if (property.rich_text && property.rich_text.length > 0) {
-        return property.rich_text.map((text: any) => text.plain_text).join(' ');
+      if (property.type === 'rich_text') {
+        const text = getRichTextAsString(property.rich_text);
+        if (text) return text;
       }
-      if (property.title && property.title.length > 0) {
-        return property.title.map((text: any) => text.plain_text).join(' ');
+      if (property.type === 'title') {
+        const title = getPlainTextFromArray(property.title);
+        if (title) return title;
       }
     }
   }
@@ -450,21 +520,21 @@ export function extractContentFromProperties(
  * Looks for common subject fields like "Subject", "Topic", "Title", etc.
  */
 export function extractSubjectFromProperties(
-  properties: Record<string, any>
+  properties: Record<string, NotionPropertyValue>
 ): string {
   const subjectFields = ['Subject', 'Topic', 'Title', 'Name', 'Headline'];
 
   for (const field of subjectFields) {
     const property = properties[field];
     if (property) {
-      if (property.type === 'title' && property.title) {
-        return property.title.map((text: any) => text.plain_text).join(' ');
+      if (property.type === 'title') {
+        return getPlainTextFromArray(property.title);
       }
-      if (property.type === 'rich_text' && property.rich_text) {
-        return property.rich_text.map((text: any) => text.plain_text).join(' ');
+      if (property.type === 'rich_text') {
+        return getRichTextAsString(property.rich_text);
       }
-      if (property.type === 'text' && property.text) {
-        return property.text.map((text: any) => text.plain_text).join(' ');
+      if (property.type === 'text') {
+        return getPlainTextFromArray(property.text);
       }
     }
   }

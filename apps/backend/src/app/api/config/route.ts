@@ -5,6 +5,7 @@ import {
   encryptSecret,
   decryptSecret,
 } from '@/lib/services';
+import type { PluginConfig } from '@sanity-notion-llm/shared';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
 // Removed old utility imports - no longer needed with DetectedField approach
 
@@ -23,15 +24,21 @@ const encryptIfPresent = (value: unknown): string =>
     ? encryptSecret(value)
     : '';
 
-const formatConfigForClient = (config: any) => ({
-  ...config,
-  notionClientSecret: safeDecrypt(config?.notionClientSecret),
-  llmApiKey: safeDecrypt(config?.llmApiKey),
-  sanityProjectId: safeDecrypt(config?.sanityProjectId),
-  sanityToken: safeDecrypt(config?.sanityToken),
-  selectedSchema: config?.selectedSchema || null,
-  detectedFields: config?.detectedFields || [],
-});
+const formatConfigForClient = (config: PluginConfig | null) => {
+  if (!config) {
+    return null;
+  }
+
+  return {
+    ...config,
+    notionClientSecret: safeDecrypt(config.notionClientSecret),
+    llmApiKey: safeDecrypt(config.llmApiKey),
+    sanityProjectId: safeDecrypt(config.sanityProjectId),
+    sanityToken: safeDecrypt(config.sanityToken),
+    selectedSchema: config.selectedSchema || null,
+    detectedFields: config.detectedFields || [],
+  };
+};
 
 export async function GET(request: NextRequest) {
   try {

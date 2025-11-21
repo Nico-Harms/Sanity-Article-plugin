@@ -51,9 +51,9 @@ export function DashboardStats({ studioId }: DashboardStatsProps) {
 
   // Expose refresh function globally for manual refresh
   useEffect(() => {
-    (window as any).refreshDashboardStats = fetchStats;
+    window.refreshDashboardStats = fetchStats;
     return () => {
-      delete (window as any).refreshDashboardStats;
+      delete window.refreshDashboardStats;
     };
   }, [studioId]);
 

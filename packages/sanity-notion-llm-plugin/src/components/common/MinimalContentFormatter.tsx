@@ -1,12 +1,33 @@
 import React from 'react';
+import type { PortableTextBlock } from '@portabletext/types';
 import { PortableText } from '@portabletext/react';
 import { Card, Text, Stack, Box } from '@sanity/ui';
 import { format } from 'date-fns';
 
+type StructuredRecord = Record<string, unknown>;
+
 interface MinimalContentFormatterProps {
-  content: any;
+  content: StructuredRecord;
   documentType?: string;
 }
+
+const isRecord = (value: unknown): value is StructuredRecord =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isPortableTextBlocks = (value: unknown): value is PortableTextBlock[] =>
+  Array.isArray(value) &&
+  value.length > 0 &&
+  value.some(
+    (item) =>
+      isRecord(item) &&
+      typeof item._type === 'string' &&
+      ['block', 'image', 'code'].includes(item._type)
+  );
+
+const isStructuredObjectArray = (value: unknown): value is StructuredRecord[] =>
+  Array.isArray(value) &&
+  value.length > 0 &&
+  value.every((item) => isRecord(item));
 
 export function MinimalContentFormatter({
   content,
@@ -40,29 +61,6 @@ export function MinimalContentFormatter({
     return value;
   };
 
-  // Detect: Is this Portable Text content?
-  const isPortableText = (value: any) => {
-    return (
-      Array.isArray(value) &&
-      value.length > 0 &&
-      value.some(
-        (item: any) =>
-          item &&
-          typeof item === 'object' &&
-          ['block', 'image', 'code'].includes(item._type)
-      )
-    );
-  };
-
-  // Detect: Is this a structured object array?
-  const isStructuredObjectArray = (value: any) => {
-    return (
-      Array.isArray(value) &&
-      value.length > 0 &&
-      value.every((item: any) => item && typeof item === 'object')
-    );
-  };
-
   // Detect: Likely a date string?
   const looksLikeDate = (value: string) => {
     const datePatterns = [
@@ -74,9 +72,10 @@ export function MinimalContentFormatter({
   };
 
   // Render: Structured object in a card
-  const renderStructuredObject = (obj: any, index: number) => {
+  const renderStructuredObject = (obj: StructuredRecord, index: number) => {
     const objectKeys = Object.keys(obj).filter((k) => !k.startsWith('_'));
-    const displayType = obj._type ? formatFieldName(obj._type) : null;
+    const displayType =
+      typeof obj._type === 'string' ? formatFieldName(obj._type) : null;
 
     return (
       <Card
@@ -114,7 +113,7 @@ export function MinimalContentFormatter({
   };
 
   // Render: Individual field based on structure
-  const renderField = (key: string, value: any, index: number) => {
+  const renderField = (key: string, value: unknown, index: number) => {
     // Skip internal fields
     if (
       key.startsWith('_') ||
@@ -170,7 +169,7 @@ export function MinimalContentFormatter({
     }
 
     // 3. Portable Text (rich content)
-    if (isPortableText(value)) {
+    if (isPortableTextBlocks(value)) {
       return (
         <Box key={key} style={{ marginBottom: '2.5rem' }}>
           <Text size={1} weight="medium" style={{ marginBottom: '0.5rem' }}>
@@ -191,9 +190,7 @@ export function MinimalContentFormatter({
             {fieldLabel}:
           </Text>
           <Stack space={2}>
-            {value.map((item: any, idx: number) =>
-              renderStructuredObject(item, idx)
-            )}
+            {value.map((item, idx) => renderStructuredObject(item, idx))}
           </Stack>
         </Box>
       );
@@ -207,7 +204,7 @@ export function MinimalContentFormatter({
             {fieldLabel}:
           </Text>
           <Stack space={1}>
-            {value.slice(0, 10).map((item: any, idx: number) => (
+            {value.slice(0, 10).map((item, idx) => (
               <Text key={idx} size={1} style={{ paddingLeft: '0.5rem' }}>
                 • {typeof item === 'string' ? item : JSON.stringify(item)}
               </Text>
@@ -223,7 +220,7 @@ export function MinimalContentFormatter({
     }
 
     // 6. Objects
-    if (typeof value === 'object' && value !== null) {
+    if (isRecord(value)) {
       const objectKeys = Object.keys(value).filter((k) => !k.startsWith('_'));
 
       // Small objects: inline display

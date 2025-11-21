@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
 import { isMonday } from '@/lib/cron/helpers';
 import { generateWeekContent } from '@/lib/cron/weekGeneration';
+import type { WeekGenerationResult } from '@/lib/cron/weekGeneration';
 import { publishScheduledContent } from '@/lib/cron/dailyPublishing';
+import type { DailyPublishingResult } from '@/lib/cron/dailyPublishing';
 
 // Force dynamic rendering - required for cron jobs that use request headers
 export const runtime = 'nodejs';
@@ -53,12 +55,18 @@ export async function GET(request: NextRequest) {
     const isMondayToday = isMonday();
     const shouldGenerateWeek = isMondayToday || forceWeekGeneration;
 
-    const results = {
+    const results: {
+      timestamp: string;
+      isMonday: boolean;
+      forceWeekGeneration: boolean;
+      weekGeneration: WeekGenerationResult | { skipped: true; reason: string };
+      dailyPublishing: DailyPublishingResult | null;
+    } = {
       timestamp: new Date().toISOString(),
       isMonday: isMondayToday,
-      forceWeekGeneration: forceWeekGeneration,
-      weekGeneration: null as any,
-      dailyPublishing: null as any,
+      forceWeekGeneration,
+      weekGeneration: { skipped: true, reason: '' },
+      dailyPublishing: null,
     };
 
     // Task 1: Generate week content (Monday only, or if forced for testing)

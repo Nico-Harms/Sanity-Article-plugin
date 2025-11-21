@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Card, Text, Box, Stack, Button, Select, Flex } from '@sanity/ui';
 import { ApiClient } from '../../services/apiClient';
-import type { SanityDraftData } from 'sanity-hermes-shared';
+import type { SanityDraftData, NotionPage } from 'sanity-hermes-shared';
 import { extractPageDisplayText } from 'sanity-hermes-shared';
 
 interface GenerationSectionProps {
   studioId: string;
-  notionPages?: any[];
+  notionPages?: NotionPage[];
   onGenerationComplete?: (draft: SanityDraftData) => void;
 }
 

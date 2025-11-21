@@ -40,8 +40,17 @@ function extractPlannedDateFromNotionPage(page: NotionPage): string | null {
   // Fallback to raw properties
   for (const fieldName of dateFields) {
     const property = page.properties?.[fieldName];
-    if (property && property.type === 'date' && property.date) {
-      return property.date.start || null;
+    if (property?.type === 'date' && property.date) {
+      const start =
+        typeof property.date === 'object' &&
+        property.date !== null &&
+        'start' in property.date &&
+        typeof property.date.start === 'string'
+          ? property.date.start
+          : null;
+      if (start) {
+        return start;
+      }
     }
   }
 
@@ -169,8 +178,8 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
       if (response.drafts) setDrafts(response.drafts);
 
       // Trigger dashboard refresh if available
-      if ((window as any).refreshDashboardStats) {
-        (window as any).refreshDashboardStats();
+      if (window.refreshDashboardStats) {
+        window.refreshDashboardStats();
       }
     } catch (err) {
       console.error(`[DraftList] Failed to approve draft:`, err);

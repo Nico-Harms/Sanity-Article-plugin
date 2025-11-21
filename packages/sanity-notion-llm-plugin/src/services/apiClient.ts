@@ -4,26 +4,31 @@ import type {
   GenerateResponse,
   DraftWithMetadata,
   DraftStats,
+  NotionPage,
+  NotionDatabase,
+  SchemaType,
+  SchemaField,
+  SanityDraftData,
 } from 'sanity-hermes-shared';
 
 const BACKEND_URL =
   process.env.SANITY_STUDIO_BACKEND_URL ||
   'https://sanity-notion-llm-api.vercel.app';
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success?: boolean;
   error?: string;
   fieldErrors?: Record<string, string>;
   config?: T;
-  database?: any;
-  pages?: any[];
-  page?: any;
-  draft?: any;
-  drafts?: any[];
+  database?: NotionDatabase;
+  pages?: NotionPage[];
+  page?: NotionPage;
+  draft?: DraftWithMetadata;
+  drafts?: DraftWithMetadata[];
   sanityDocId?: string;
-  schemas?: any[];
-  fields?: any[];
-  stats?: any;
+  schemas?: SchemaType[];
+  fields?: SchemaField[];
+  stats?: DraftStats;
 }
 
 export class ApiClient {
@@ -104,19 +109,9 @@ export class ApiClient {
     // Extract the GenerateResponse from the ApiResponse wrapper
     return {
       success: response.success || false,
-      draft: response.draft,
+      draft: response.draft as SanityDraftData | undefined,
       sanityDocId: response.sanityDocId,
       error: response.error,
-    };
-  }
-
-  private static handleResponse<T>(
-    response: ApiResponse<T>,
-    dataKey: keyof ApiResponse
-  ) {
-    return {
-      [dataKey]: response[dataKey] || null,
-      error: response.error || null,
     };
   }
 
@@ -124,14 +119,20 @@ export class ApiClient {
     const response = await this.makeRequest<{ drafts: DraftWithMetadata[] }>(
       `/api/drafts?studioId=${studioId}`
     );
-    return this.handleResponse(response, 'drafts');
+    return {
+      drafts: response.drafts ?? null,
+      error: response.error ?? null,
+    };
   }
 
   static async getDraftStats(studioId: string) {
     const response = await this.makeRequest<{ stats: DraftStats }>(
       `/api/drafts/stats?studioId=${studioId}`
     );
-    return this.handleResponse(response, 'stats');
+    return {
+      stats: response.stats ?? null,
+      error: response.error ?? null,
+    };
   }
 
   static async approveDraft(studioId: string, documentId: string) {
@@ -142,7 +143,10 @@ export class ApiClient {
         body: JSON.stringify({ studioId, documentId }),
       }
     );
-    return this.handleResponse(response, 'success');
+    return {
+      success: response.success ?? null,
+      error: response.error ?? null,
+    };
   }
 
   static async getSchemaTypes(studioId: string) {

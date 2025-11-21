@@ -1,3 +1,7 @@
+export type NotionPropertyValue = {
+  type?: string;
+} & Record<string, unknown>;
+
 export interface NotionPage {
   id: string;
   url: string;
@@ -7,7 +11,7 @@ export interface NotionPage {
    * Consumers that need display text should use helpers that
    * understand Notion property shapes.
    */
-  properties: Record<string, any>;
+  properties: Record<string, NotionPropertyValue>;
   /**
    * Convenience map of simplified property values. These are
    * derived from the raw properties and are useful when callers
@@ -24,7 +28,7 @@ export interface NotionPage {
 export interface NotionDatabase {
   id: string;
   title: string;
-  properties: Record<string, unknown>;
+  properties: Record<string, NotionPropertyValue>;
 }
 
 export interface NotionProperty {

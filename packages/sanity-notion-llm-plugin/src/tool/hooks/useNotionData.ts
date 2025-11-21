@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import type { PluginConfig } from 'sanity-hermes-shared';
+import type { PluginConfig, NotionPage } from 'sanity-hermes-shared';
 import { ApiClient } from '../../services/apiClient';
 
 export function useNotionData(
   studioId: string | null,
   config: PluginConfig | null
 ) {
-  const [pages, setPages] = useState<any[]>([]);
+  const [pages, setPages] = useState<NotionPage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

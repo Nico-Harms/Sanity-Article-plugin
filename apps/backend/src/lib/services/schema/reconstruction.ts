@@ -28,7 +28,10 @@ export function prepareContentForFields(
 
     const rawValue = popRawValue(rawValues, field.path);
     if (rawValue !== undefined) {
-      preparedContent[field.path] = convertContentForField(rawValue, field.type);
+      preparedContent[field.path] = convertContentForField(
+        rawValue,
+        field.type
+      );
     }
   });
 
@@ -77,7 +80,7 @@ function buildArrayFromRawValues(
   arrayField: SchemaField,
   allFields: SchemaField[],
   directValue: unknown
-): any[] | undefined {
+): unknown[] | undefined {
   if (Array.isArray(directValue)) {
     return directValue.map((item) => ensureArrayItemHasKey(item));
   }
@@ -88,9 +91,7 @@ function buildArrayFromRawValues(
 
   if (nestedFields.length === 0) {
     if (directValue === undefined) return undefined;
-    const valueArray = Array.isArray(directValue)
-      ? directValue
-      : [directValue];
+    const valueArray = Array.isArray(directValue) ? directValue : [directValue];
     return valueArray.map((item) => ensureArrayItemHasKey(item));
   }
 

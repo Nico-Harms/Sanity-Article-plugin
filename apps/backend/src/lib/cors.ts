@@ -10,7 +10,7 @@ const CORS_HEADERS = {
 export const corsHeaders = CORS_HEADERS;
 
 export function createCorsResponse(
-  data: any,
+  data: unknown,
   status: number = 200
 ): NextResponse {
   const response = new NextResponse(JSON.stringify(data ?? {}), {

@@ -28,7 +28,7 @@ export function DraftModal({
   onClose,
   onApprove,
 }: DraftModalProps) {
-  const [content, setContent] = useState<any>(null);
+  const [content, setContent] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const client = useClient({ apiVersion: '2023-03-01' });
@@ -41,7 +41,7 @@ export function DraftModal({
           setLoading(true);
           setError(null);
 
-          let documentData = null;
+          let documentData: Record<string, unknown> | null = null;
           let documentId = draft.sanityDraftId;
 
           // Smart ID resolution based on status
@@ -54,14 +54,18 @@ export function DraftModal({
 
           // Try primary ID
           try {
-            documentData = await client.getDocument(documentId);
+            documentData =
+              (await client.getDocument<Record<string, unknown>>(documentId)) ??
+              null;
           } catch (primaryError) {
             // Fallback: try the alternate ID
             const fallbackId = documentId.startsWith('drafts.')
               ? documentId.replace(/^drafts\./, '')
               : `drafts.${documentId}`;
 
-            documentData = await client.getDocument(fallbackId);
+            documentData =
+              (await client.getDocument<Record<string, unknown>>(fallbackId)) ??
+              null;
           }
 
           setContent(documentData);

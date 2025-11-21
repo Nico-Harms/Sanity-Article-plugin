@@ -9,14 +9,22 @@ import {
   mergeFields,
 } from './utils';
 
-export function inferSchemaFromDocuments(documents: any[]): SchemaType[] {
+type SanityDocument = Record<string, unknown> & { _type?: unknown };
+
+export function inferSchemaFromDocuments(
+  documents: SanityDocument[]
+): SchemaType[] {
   const typeMap = new Map<string, SchemaField[]>();
 
   documents.forEach((doc) => {
-    if (!doc?._type) return;
-    const existing = typeMap.get(doc._type) ?? [];
+    const docType =
+      typeof doc._type === 'string' && doc._type.trim().length > 0
+        ? doc._type
+        : null;
+    if (!docType) return;
+    const existing = typeMap.get(docType) ?? [];
     const inferred = inferFieldsFromDocument(doc);
-    typeMap.set(doc._type, mergeFields(existing, inferred));
+    typeMap.set(docType, mergeFields(existing, inferred));
   });
 
   return Array.from(typeMap.entries()).map(([typeName, fields]) => ({
@@ -26,7 +34,9 @@ export function inferSchemaFromDocuments(documents: any[]): SchemaType[] {
   }));
 }
 
-export function inferFieldsFromMultipleDocuments(documents: any[]): SchemaField[] {
+export function inferFieldsFromMultipleDocuments(
+  documents: SanityDocument[]
+): SchemaField[] {
   let merged: SchemaField[] = [];
   documents.forEach((doc) => {
     merged = mergeFields(merged, inferFieldsFromDocument(doc));
@@ -34,7 +44,7 @@ export function inferFieldsFromMultipleDocuments(documents: any[]): SchemaField[
   return merged;
 }
 
-export function inferFieldsFromDocument(doc: any): SchemaField[] {
+export function inferFieldsFromDocument(doc: SanityDocument): SchemaField[] {
   const fieldMap = new Map<string, SchemaField>();
 
   Object.keys(doc || {}).forEach((key) => {
@@ -56,7 +66,7 @@ export function inferFieldsFromDocument(doc: any): SchemaField[] {
 }
 
 function traverseValue(
-  value: any,
+  value: unknown,
   context: TraverseContext,
   fieldMap: Map<string, SchemaField>
 ) {
@@ -90,9 +100,10 @@ function traverseValue(
   }
 
   if (value && typeof value === 'object') {
-    Object.keys(value).forEach((childKey) => {
+    const record = value as Record<string, unknown>;
+    Object.keys(record).forEach((childKey) => {
       if (childKey.startsWith('_')) return;
-      const childValue = value[childKey];
+      const childValue = record[childKey];
       traverseValue(
         childValue,
         {
@@ -109,14 +120,15 @@ function traverseValue(
 }
 
 function handleArrayValue(
-  arrayValue: any[],
+  arrayValue: unknown[],
   context: TraverseContext,
   fieldMap: Map<string, SchemaField>
 ) {
   const { path, titleParts } = context;
 
   const objectItems = arrayValue.filter(
-    (item) => item && typeof item === 'object' && !Array.isArray(item)
+    (item): item is Record<string, unknown> =>
+      item !== null && typeof item === 'object' && !Array.isArray(item)
   );
 
   if (objectItems.length === 0) {
@@ -127,23 +139,29 @@ function handleArrayValue(
     return;
   }
 
-  const groupedByModule = new Map<string | undefined, any[]>();
+  const groupedByModule = new Map<
+    string | undefined,
+    Record<string, unknown>[]
+  >();
 
   objectItems.forEach((item) => {
+    const record = item as Record<string, unknown>;
+    const rawType = record['_type'];
     const detectedModuleType =
-      typeof item._type === 'string' ? item._type : undefined;
+      typeof rawType === 'string' ? rawType : undefined;
     const key = detectedModuleType || '__default__';
     if (!groupedByModule.has(key)) {
       groupedByModule.set(key, []);
     }
-    groupedByModule.get(key)!.push(item);
+    groupedByModule.get(key)!.push(record);
   });
 
   const ignoredModuleTypes = new Set(['block', 'span', 'markDefs']);
   const ignoredBlockKeys = new Set(['children', 'markDefs']);
 
   groupedByModule.forEach((items, moduleKey) => {
-    const detectedModuleType = moduleKey === '__default__' ? undefined : moduleKey;
+    const detectedModuleType =
+      moduleKey === '__default__' ? undefined : moduleKey;
 
     if (detectedModuleType && ignoredModuleTypes.has(detectedModuleType)) {
       return;
@@ -154,7 +172,8 @@ function handleArrayValue(
     items.forEach((item) => {
       Object.keys(item).forEach((childKey) => {
         if (childKey.startsWith('_')) return;
-        if (detectedModuleType === 'block' && ignoredBlockKeys.has(childKey)) return;
+        if (detectedModuleType === 'block' && ignoredBlockKeys.has(childKey))
+          return;
         childKeys.add(childKey);
       });
     });
