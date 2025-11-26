@@ -2,3 +2,4 @@
 export * from './types';
 export * from './constants';
 export * from './utils/notionUtils';
+export { normalizeLLMOutput } from './utils/normalizeLLMOutput';
