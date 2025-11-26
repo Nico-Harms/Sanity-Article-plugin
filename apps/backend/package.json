@@ -17,6 +17,7 @@
     "@perplexity-ai/perplexity_ai": "^0.16.0",
     "@sanity-notion-llm/shared": "file:../../packages/shared",
     "@sanity/client": "^7.12.0",
+    "@types/mdast": "^4.0.4",
     "bcryptjs": "^2.4.3",
     "mongodb": "^6.3.0",
     "next": "^14.0.4",

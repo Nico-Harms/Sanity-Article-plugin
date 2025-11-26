@@ -32,51 +32,64 @@ function createSpan(text: string, marks: string[] = []): SanitySpan {
   };
 }
 
-function parseMarkdownLinks(text: string): {
+/**
+ * Parse inline formatting (bold, italic, links)
+ * Simple regex-based parser for common markdown patterns
+ */
+function parseInline(text: string): {
   children: SanitySpan[];
   markDefs: SanityLinkDef[];
 } {
   const children: SanitySpan[] = [];
   const markDefs: SanityLinkDef[] = [];
-  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+
+  // Current simple strategy: Split by special chars is risky.
+  // Better strategy: Use a regex that matches ANY special token:
+  // Link: \[.*?\]\(.*?\)
+  // Bold: \*\*.*?\*\*
+  // Italic: \*.*?\*
+
+  const tokenRegex = /(\[(?:[^\]]+)\]\((?:[^)]+)\)|\*\*[^*]+\*\*|\*[^*]+\*)/g;
   let lastIndex = 0;
   let match;
 
-  while ((match = linkRegex.exec(text)) !== null) {
-    const [fullMatch, linkText, url] = match;
+  while ((match = tokenRegex.exec(text)) !== null) {
+    const fullMatch = match[0];
     const matchStart = match.index;
-    const matchEnd = matchStart + fullMatch.length;
 
-    // Add text before the link
+    // Add text before
     if (matchStart > lastIndex) {
-      const textBefore = text.substring(lastIndex, matchStart);
-      if (textBefore) {
-        children.push(createSpan(textBefore));
+      children.push(createSpan(text.substring(lastIndex, matchStart)));
+    }
+
+    // Handle the match
+    if (fullMatch.startsWith('[')) {
+      // Link: [text](url)
+      const linkMatch = fullMatch.match(/^\[([^\]]+)\]\(([^)]+)\)$/);
+      if (linkMatch) {
+        const [, linkText, url] = linkMatch;
+        const key = generateKey();
+        markDefs.push({ _type: 'link', _key: key, href: url });
+        children.push(createSpan(linkText, [key]));
       }
+    } else if (fullMatch.startsWith('**')) {
+      // Bold: **text**
+      const content = fullMatch.slice(2, -2);
+      children.push(createSpan(content, ['strong']));
+    } else if (fullMatch.startsWith('*')) {
+      // Italic: *text*
+      const content = fullMatch.slice(1, -1);
+      children.push(createSpan(content, ['em']));
     }
 
-    // Create link mark definition
-    const linkKey = generateKey();
-    markDefs.push({
-      _type: 'link',
-      _key: linkKey,
-      href: url,
-    });
-
-    // Add link span with mark reference
-    children.push(createSpan(linkText, [linkKey]));
-    lastIndex = matchEnd;
+    lastIndex = matchStart + fullMatch.length;
   }
 
-  // Add remaining text after last link
+  // Add remaining text
   if (lastIndex < text.length) {
-    const textAfter = text.substring(lastIndex);
-    if (textAfter) {
-      children.push(createSpan(textAfter));
-    }
+    children.push(createSpan(text.substring(lastIndex)));
   }
 
-  // If no links found, return single span with all text
   if (children.length === 0) {
     children.push(createSpan(text));
   }
@@ -91,25 +104,18 @@ export function convertStringToBlockContent(
     return [];
   }
 
-  const cleanText = text.trim();
-  if (!cleanText) {
-    return [];
-  }
+  // Normalize newlines
+  const cleanText = text.replace(/\r\n/g, '\n').trim();
+  if (!cleanText) return [];
 
-  const paragraphs = cleanText
-    .split(/\n\s*\n/)
-    .filter((paragraph) => paragraph.trim());
+  const lines = cleanText.split('\n');
+  const blocks: PortableTextBlock[] = [];
+  let buffer: string[] = [];
 
-  if (paragraphs.length === 0) {
-    paragraphs.push(cleanText);
-  }
-
-  return paragraphs
-    .map((paragraph) => {
-      const cleanParagraph = paragraph.trim();
-      if (!cleanParagraph) return null;
-
-      const { children, markDefs } = parseMarkdownLinks(cleanParagraph);
+  const flushBuffer = () => {
+    if (buffer.length > 0) {
+      const content = buffer.join(' ');
+      const { children, markDefs } = parseInline(content);
 
       const block: PortableTextBlock = {
         _type: 'block',
@@ -119,11 +125,99 @@ export function convertStringToBlockContent(
         children,
       };
 
-      if (markDefs.length === 0) {
-        delete block.markDefs;
+      if (!markDefs.length) delete block.markDefs;
+      blocks.push(block);
+      buffer = [];
+    }
+  };
+
+  for (const line of lines) {
+    const trim = line.trim();
+
+    // Empty line triggers paragraph break
+    if (!trim) {
+      flushBuffer();
+      continue;
+    }
+
+    // Check for Header
+    if (trim.startsWith('#')) {
+      flushBuffer();
+
+      let style = 'h1';
+      let content = trim;
+
+      if (trim.startsWith('### ')) {
+        style = 'h3';
+        content = trim.substring(4);
+      } else if (trim.startsWith('## ')) {
+        style = 'h2';
+        content = trim.substring(3);
+      } else if (trim.startsWith('# ')) {
+        style = 'h1';
+        content = trim.substring(2);
+      } else {
+        // Treat as plain text if just # without space (optional, but safer to assume h1 if #Text)
+        // But standard markdown requires space.
+        // Let's handle standard headers with space
+        if (!trim.match(/^#+\s/)) {
+          buffer.push(trim);
+          continue;
+        }
       }
 
-      return block;
-    })
-    .filter((block): block is PortableTextBlock => Boolean(block));
+      const { children, markDefs } = parseInline(content);
+      const block: PortableTextBlock = {
+        _type: 'block',
+        _key: generateKey(),
+        style,
+        markDefs,
+        children,
+      };
+      if (!markDefs.length) delete block.markDefs;
+      blocks.push(block);
+      continue;
+    }
+
+    // Check for List Item
+    // Matches "- " or "* " or "1. "
+    if (
+      trim.startsWith('- ') ||
+      trim.startsWith('* ') ||
+      /^\d+\.\s/.test(trim)
+    ) {
+      flushBuffer();
+
+      let listItem = 'bullet';
+      let content = trim;
+
+      if (trim.startsWith('- ') || trim.startsWith('* ')) {
+        content = trim.substring(2);
+      } else {
+        listItem = 'number';
+        content = trim.replace(/^\d+\.\s/, '');
+      }
+
+      const { children, markDefs } = parseInline(content);
+      const block: PortableTextBlock = {
+        _type: 'block',
+        _key: generateKey(),
+        style: 'normal',
+        listItem,
+        markDefs,
+        children,
+      };
+      if (!markDefs.length) delete block.markDefs;
+      blocks.push(block);
+      continue;
+    }
+
+    // Regular text line - add to buffer (will be joined for wrapping)
+    buffer.push(trim);
+  }
+
+  // Final flush
+  flushBuffer();
+
+  return blocks;
 }

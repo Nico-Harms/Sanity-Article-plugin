@@ -6,6 +6,7 @@ import type {
 } from '@sanity-notion-llm/shared';
 import { normalizeLLMOutput } from '@sanity-notion-llm/shared';
 import { LLMProviderFactory, type LLMProvider } from './llm/LLMProviderFactory';
+import { convertStringToBlockContent } from './schema/blockContentConverter';
 
 /*===============================================
 |=                 LLMService                   =
@@ -122,38 +123,67 @@ export class LLMService {
         ? `\n\nCUSTOM INSTRUCTIONS:\n${customInstructions.join('\n\n')}`
         : '';
 
-    return `You are a content writer creating a ${schemaType} document for a Sanity CMS.
+    return `You are an expert content writer creating a comprehensive ${schemaType} document for a Sanity CMS.
 
-CONTENT PLAN:
+CONTENT BRIEF (TO BE EXPANDED):
 Subject: ${notionPage.subject}
-Content: ${notionPage.content}
+Brief/Outline: ${notionPage.content}
+
+YOUR TASK:
+The "Brief/Outline" above is a SHORT SUMMARY that you must EXPAND into a full, detailed, well-structured article.
+Do NOT simply translate or paraphrase the brief. Instead, use it as inspiration to write comprehensive, engaging content.
 
 FIELDS TO GENERATE:
 ${fieldInstructions}${customInstructionsSection}
 
-REQUIREMENTS:
-- Based on prompt and informatio provided, generate content for article / insight / blog post / etc.
-- Return ONLY a valid JSON object with the following structure:
+CONTENT REQUIREMENTS:
+1. EXPAND the brief into full article content with:
+   - Detailed explanations and context
+   - Multiple well-developed sections with headings
+   - Concrete examples and use cases
+   - Actionable insights and takeaways
+   - Professional, engaging tone
+
+2. STRUCTURE your content with:
+   - Clear introduction that hooks the reader
+   - Body sections with descriptive headings (use ## for h2, ### for h3)
+   - Supporting details and explanations
+   - Natural conclusion or call-to-action
+
+3. LENGTH & DEPTH:
+   - Generate substantial content (aim for 500-1500 words depending on the topic)
+   - Don't just restate the brief - elaborate and add value
+   - Provide depth and context that makes this worth reading
+
+4. MARKDOWN FORMATTING:
+   - Use **bold** for emphasis
+   - Use *italic* for subtle emphasis
+   - Use ## for main headings, ### for subheadings
+   - Use lists where appropriate
+   - Use clear paragraph breaks (\\n\\n)
+
+LINK HANDLING:
+- If the brief contains links [text](url), integrate them naturally into your expanded content
+- Preserve the exact URLs provided
+- You may adjust link text slightly to fit naturally in your expanded writing
+- Add the links where they make sense contextually in your article
+
+OUTPUT FORMAT:
+- Return ONLY a valid JSON object with this exact structure:
 {
 ${enabledFields.map((field) => `  "${field.name}": "generated_value"`).join(',\n')}
 }
-- Ensure all enabled fields are populated
+- Ensure all enabled fields are populated with meaningful, expanded content
 - Escape all quotes, newlines, and special characters properly
 - Use \\n for line breaks, \\" for quotes
 
-CRITICAL LINK PRESERVATION RULES:
-- The content plan may contain markdown links in the format [text](url)
-- You MUST preserve ALL links exactly as they appear in the content plan
-- If you see a link like [title of the link - (https:URL), you MUST include it in your generated content with the EXACT same format (title of the link - (https:URL)).
-- Do NOT change the link text or URL - use them exactly as provided
-- Do NOT convert links to plain text - they must remain in markdown format [text](url)
-- If multiple links appear in the content plan, include ALL of them in your generated article
-- Links are 1:1 references from the source content - preserve them precisely
-- If there are no links, DO NOT include any links in your generated content.
-
+IMPORTANT FIELD TYPE RULES:
+- For datetime/date fields: Use ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ or YYYY-MM-DD)
+- For string/text fields: Generate expanded, detailed content
+- For number fields: Use valid numbers only
 - Return ONLY the JSON object, no additional text
 
-Generate the content now:`;
+Generate the comprehensive content now:`;
   }
 
   /**
@@ -283,9 +313,14 @@ Generate the content now:`;
       throw new Error('Invalid parsed response: not an object');
     }
 
-    // Normalize all string fields in the parsed response
+    const fieldTypeMap = new Map<string, string>();
+    detectedFields.forEach((field) => {
+      fieldTypeMap.set(field.name, field.type);
+    });
+
     const normalized = await this.normalizeStringFields(
-      parsed as Record<string, unknown>
+      parsed as Record<string, unknown>,
+      fieldTypeMap
     );
 
     // Validate required fields
@@ -306,44 +341,85 @@ Generate the content now:`;
   }
 
   /*===============================================
-=          Normalize String Fields           =
-===============================================*/
+ =          Normalize String Fields           =
+ ===============================================*/
+
+  private validateDateField(value: string): string | null {
+    try {
+      // Try to parse the date
+      const date = new Date(value);
+
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        console.warn(`[llm-service] Invalid date value: "${value}"`);
+        return null;
+      }
+
+      // Return ISO string format
+      return date.toISOString();
+    } catch (error) {
+      console.warn(`[llm-service] Failed to parse date "${value}":`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Check if a field should skip normalization
+   */
+  private shouldSkipNormalization(
+    fieldName: string,
+    fieldTypeMap: Map<string, string>
+  ): boolean {
+    const fieldType = fieldTypeMap.get(fieldName);
+    return fieldType === 'datetime' || fieldType === 'date';
+  }
 
   private async normalizeStringFields(
-    obj: Record<string, unknown>
+    obj: Record<string, unknown>,
+    fieldTypeMap: Map<string, string>
   ): Promise<Record<string, unknown>> {
     const normalized: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === 'string') {
-        // Apply normalization to string fields
-        try {
-          normalized[key] = await normalizeLLMOutput(value);
-        } catch (error) {
-          console.warn(
-            `[llm-service] Failed to normalize field "${key}":`,
-            error
-          );
-          // If normalization fails, use original value
-          normalized[key] = value;
+        if (this.shouldSkipNormalization(key, fieldTypeMap)) {
+          const validDate = this.validateDateField(value);
+          normalized[key] = validDate;
+        } else {
+          // Check for block content fields
+          const fieldType = fieldTypeMap.get(key);
+
+          // Apply normalization to other string fields
+          try {
+            const cleanedValue = await normalizeLLMOutput(value);
+
+            if (fieldType === 'blockContent' || fieldType === 'array') {
+              // Convert markdown string to Portable Text blocks
+              normalized[key] = convertStringToBlockContent(cleanedValue);
+            } else {
+              // Keep as cleaned string
+              normalized[key] = cleanedValue;
+            }
+          } catch (error) {
+            console.warn(
+              `[llm-service] Failed to normalize field "${key}":`,
+              error
+            );
+            // If normalization fails, use original value
+            normalized[key] = value;
+          }
         }
       } else if (Array.isArray(value)) {
         // Handle arrays (recursively normalize objects in arrays)
         normalized[key] = await Promise.all(
           value.map(async (item) => {
             if (typeof item === 'string') {
-              try {
-                return await normalizeLLMOutput(item);
-              } catch (error) {
-                console.warn(
-                  `[llm-service] Failed to normalize array item in "${key}":`,
-                  error
-                );
-                return item;
-              }
+              // Don't normalize string items in arrays - they're usually not text content
+              return item;
             } else if (item && typeof item === 'object') {
               return await this.normalizeStringFields(
-                item as Record<string, unknown>
+                item as Record<string, unknown>,
+                fieldTypeMap
               );
             }
             return item;
@@ -352,10 +428,10 @@ Generate the content now:`;
       } else if (value && typeof value === 'object') {
         // Recursively normalize nested objects
         normalized[key] = await this.normalizeStringFields(
-          value as Record<string, unknown>
+          value as Record<string, unknown>,
+          fieldTypeMap
         );
       } else {
-        // Keep other types as-is (numbers, booleans, null, etc.)
         normalized[key] = value;
       }
     }
