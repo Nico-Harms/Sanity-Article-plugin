@@ -4,16 +4,16 @@ An intelligent Sanity plugin that turns your Notion content plan into AI-written
 
 **Core Goal:** Automate content publishing by connecting Notion → LLM → Sanity in a clean, configurable way.
 
-## ✨ Key Features
+## Key Features
 
-- **🤖 Multi-LLM Support**: Choose between OpenAI, Mistral, Gemini, or Perplexity.
-- **🔗 Notion Sync**: Bidirectional status updates (Waiting → In Progress → Approved → Published).
-- **🧩 Smart Schema Detection**: Automatically detects your Sanity fields and maps content intelligently.
-- **🛡️ Secure & Multi-Tenant**: API keys are encrypted; supports multiple Studio configurations.
-- **📅 Automated Workflow**: Schedule drafts to generate on Mondays and publish throughout the week.
-- **✍️ Clean Content**: Automatically converts Markdown to Sanity Portable Text (headings, bold, links, lists).
+- **Multi-LLM Support**: Choose between OpenAI, Mistral, Gemini, or Perplexity.
+- **Notion Sync**: Bidirectional status updates (Waiting → In Progress → Approved → Published).
+- **Smart Schema Detection**: Automatically detects your Sanity fields and maps content intelligently.
+- **Secure & Multi-Tenant**: API keys are encrypted; supports multiple Studio configurations.
+- **Automated Workflow**: Schedule drafts to generate on Mondays and publish throughout the week.
+- **Clean Content**: Automatically converts Markdown to Sanity Portable Text (headings, bold, links, lists).
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Install & Setup
 
@@ -104,15 +104,6 @@ The system is designed for a weekly editorial rhythm:
 1. **Monday**: Cron job generates drafts for all "Waiting" Notion items.
 2. **Mid-week**: Editors review and approve drafts in Sanity.
 3. **Daily**: Cron job publishes approved drafts on their scheduled dates.
-
-## 🤝 Contributing
-
-Contributions are welcome!
-
-1. Fork the repo.
-2. Create a feature branch (`git checkout -b feature/amazing-feature`).
-3. Commit your changes.
-4. Open a Pull Request.
 
 ## License
 
