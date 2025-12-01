@@ -1,6 +1,7 @@
 export type ConfigFieldKey =
   | 'notionDatabaseUrl'
   | 'notionClientSecret'
+  | 'publishDateProperty'
   | 'llmProvider'
   | 'llmApiKey'
   | 'llmModel'

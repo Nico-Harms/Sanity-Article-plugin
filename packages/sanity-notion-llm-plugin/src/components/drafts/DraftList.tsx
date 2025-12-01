@@ -14,6 +14,7 @@ import {
 interface DraftListProps {
   studioId: string;
   selectedWeekStart: Date;
+  publishDateProperty?: string;
 }
 
 const STATUS_CONFIG = {
@@ -26,19 +27,29 @@ const STATUS_CONFIG = {
 /**
  * Extracts planned publish date from Notion page properties
  */
-function extractPlannedDateFromNotionPage(page: NotionPage): string | null {
-  const dateFields = ['Publish Date', 'Planned Date', 'Date', 'Scheduled Date'];
+function extractPlannedDateFromNotionPage(
+  page: NotionPage,
+  preferredField?: string
+): string | null {
+  const fallbackFields = [
+    'Publish Date',
+    'Planned Date',
+    'Date',
+    'Scheduled Date',
+  ];
+  const lookupOrder = [
+    ...(preferredField ? [preferredField] : []),
+    ...fallbackFields,
+  ].filter((value, index, array) => value && array.indexOf(value) === index);
 
-  // Try propertyValues first (simplified values)
-  for (const fieldName of dateFields) {
+  for (const fieldName of lookupOrder) {
     const value = page.propertyValues?.[fieldName];
     if (value && typeof value === 'string') {
       return value;
     }
   }
 
-  // Fallback to raw properties
-  for (const fieldName of dateFields) {
+  for (const fieldName of lookupOrder) {
     const property = page.properties?.[fieldName];
     if (property?.type === 'date' && property.date) {
       const start =
@@ -82,7 +93,11 @@ function extractContentTitleFromNotionPage(page: NotionPage): string {
   return page.title || 'Untitled Page';
 }
 
-export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
+export function DraftList({
+  studioId,
+  selectedWeekStart,
+  publishDateProperty,
+}: DraftListProps) {
   const [drafts, setDrafts] = useState<DraftWithMetadata[]>([]);
   const [notionPages, setNotionPages] = useState<NotionPage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -144,7 +159,10 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
       return false;
     }
 
-    const plannedDate = extractPlannedDateFromNotionPage(page);
+    const plannedDate = extractPlannedDateFromNotionPage(
+      page,
+      publishDateProperty
+    );
     if (!plannedDate) {
       return false;
     }
@@ -305,7 +323,10 @@ export function DraftList({ studioId, selectedWeekStart }: DraftListProps) {
   );
 
   const renderScheduledPageCard = (page: NotionPage) => {
-    const plannedDate = extractPlannedDateFromNotionPage(page);
+    const plannedDate = extractPlannedDateFromNotionPage(
+      page,
+      publishDateProperty
+    );
     const contentTitle = extractContentTitleFromNotionPage(page);
 
     return (

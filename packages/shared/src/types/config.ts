@@ -17,6 +17,11 @@ export interface PluginConfig {
   detectedFields: DetectedField[]; // NEW - replaces fieldMappings
   notionDatabaseUrl: string;
   notionClientSecret: string;
+  /**
+   * Name of the Notion date property that should be treated as the planned publish date.
+   * Optional to maintain backwards compatibility with legacy configs.
+   */
+  publishDateProperty?: string;
   llmProvider: 'mistral' | 'openai' | 'gemini' | 'perplexity';
   llmApiKey: string;
   llmModel: string;

@@ -9,51 +9,19 @@ import {
   decryptSecret,
   extractSubjectFromProperties,
 } from '@/lib/services';
+import { extractPlannedDateFromNotion as getPlannedDate } from '@/lib/cron/helpers';
 import { createCorsResponse, createCorsPreflightResponse } from '@/lib/cors';
 import { getDraftMetadataService } from '@/lib/database/draftMetadata';
 
-/*===============================================
-=          Helper function to extract planned publish date from Notion page          =
-===============================================*/
-
-/**
-TODO: Test and add validation for the planned publish date, and clean up the code 
- */
-function extractPlannedDateFromNotion(notionPageData: NotionPageData): string {
-  // Look for common date field names in Notion properties
-  const dateFields = ['Publish Date', 'Planned Date', 'Date', 'Scheduled Date'];
-
-  for (const fieldName of dateFields) {
-    const field = notionPageData.properties?.[fieldName];
-    if (
-      field &&
-      typeof field === 'object' &&
-      'type' in field &&
-      field.type === 'date' &&
-      'date' in field &&
-      field.date
-    ) {
-      const start =
-        typeof field.date === 'object' &&
-        field.date !== null &&
-        'start' in field.date &&
-        typeof field.date.start === 'string'
-          ? field.date.start
-          : null;
-      if (start) {
-        return start;
-      }
-    }
-  }
-
-  // Default to today if no date found
-  return new Date().toISOString().split('T')[0];
-}
 import type {
   GenerateRequest,
   GenerateResponse,
   NotionPageData,
 } from '@sanity-notion-llm/shared';
+
+/*===============================================
+=          Generate API Route            =
+===============================================*/
 
 /**
  * POST /api/generate
@@ -130,7 +98,11 @@ export async function POST(request: NextRequest) {
 
     // Create LLM service and generate article
     const llmProvider = config.llmProvider || 'mistral'; // Default to mistral for backward compatibility
-    const llmService = createLLMService(llmProvider, llmApiKey, config.llmModel);
+    const llmService = createLLMService(
+      llmProvider,
+      llmApiKey,
+      config.llmModel
+    );
 
     const draft = await llmService.generateArticle(
       notionPageData,
@@ -152,9 +124,12 @@ export async function POST(request: NextRequest) {
 
         // Prepare content for the specific schema
         const schemaType = config.selectedSchema || 'article';
+        const plannedPublishDate =
+          getPlannedDate(notionPageData, config.publishDateProperty) ??
+          new Date().toISOString().split('T')[0];
         const rawContent = {
           ...draft,
-          publishDate: extractPlannedDateFromNotion(notionPageData),
+          publishDate: plannedPublishDate,
         };
 
         const preparedContent = await schemaService.prepareContentForSchema(
@@ -180,7 +155,7 @@ export async function POST(request: NextRequest) {
             sanityDocumentType: schemaType,
             studioId,
             status: 'pending_review',
-            plannedPublishDate: extractPlannedDateFromNotion(notionPageData),
+            plannedPublishDate: plannedPublishDate,
             generatedAt: new Date(),
           });
         } catch (metadataError) {

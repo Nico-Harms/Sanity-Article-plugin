@@ -7,9 +7,13 @@ import { getCurrentWeekStart } from '../../utils/dateUtils';
 
 interface GeneralTabContentProps {
   studioId: string;
+  publishDateProperty?: string;
 }
 
-export function GeneralTabContent({ studioId }: GeneralTabContentProps) {
+export function GeneralTabContent({
+  studioId,
+  publishDateProperty,
+}: GeneralTabContentProps) {
   const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(
     getCurrentWeekStart()
   );
@@ -26,7 +30,11 @@ export function GeneralTabContent({ studioId }: GeneralTabContentProps) {
         />
       </Flex>
       <DashboardStats studioId={studioId} />
-      <DraftList studioId={studioId} selectedWeekStart={selectedWeekStart} />
+      <DraftList
+        studioId={studioId}
+        selectedWeekStart={selectedWeekStart}
+        publishDateProperty={publishDateProperty}
+      />
     </Stack>
   );
 }

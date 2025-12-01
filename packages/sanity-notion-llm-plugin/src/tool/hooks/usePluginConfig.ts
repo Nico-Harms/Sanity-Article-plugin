@@ -22,6 +22,7 @@ const createDefaultConfig = (studioId: string): PluginConfig => ({
   detectedFields: [],
   notionDatabaseUrl: '',
   notionClientSecret: '',
+  publishDateProperty: '',
   llmProvider: 'mistral',
   llmApiKey: '',
   llmModel: 'open-mistral-7b',

@@ -13,6 +13,7 @@ interface SettingsTabContentProps {
   onSaveConfiguration: () => void;
   onTestConnection: () => void;
   onClearFieldError?: (field: ConfigFieldKey) => void;
+  datePropertyOptions?: Array<{ value: string; label: string }>;
 }
 
 export function SettingsTabContent({
@@ -23,6 +24,7 @@ export function SettingsTabContent({
   onSaveConfiguration,
   onTestConnection,
   onClearFieldError,
+  datePropertyOptions,
 }: SettingsTabContentProps) {
   return (
     <Stack space={5}>
@@ -43,6 +45,7 @@ export function SettingsTabContent({
         onTestConnection={onTestConnection}
         isTesting={loading}
         onClearFieldError={onClearFieldError}
+        datePropertyOptions={datePropertyOptions}
       />
 
       {/* Save & Connection Status Section */}

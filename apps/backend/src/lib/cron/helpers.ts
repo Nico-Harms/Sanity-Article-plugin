@@ -1,4 +1,8 @@
-import type { NotionPageData, NotionPage } from '@sanity-notion-llm/shared';
+import type {
+  NotionPageData,
+  NotionPage,
+  NotionPropertyValue,
+} from '@sanity-notion-llm/shared';
 
 /*===============================================
 |=          Date Helper Functions          =
@@ -22,7 +26,7 @@ export function getCurrentWeekRange(): { start: string; end: string } {
   const dayOfWeek = today.getDay();
 
   // Calculate days since last Monday (1 = Monday, 0 = Sunday)
-  let daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+  const daysSinceMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
 
   const currentMonday = new Date(today);
   currentMonday.setDate(today.getDate() - daysSinceMonday);
@@ -64,34 +68,63 @@ export function isDateInRange(
 |=          Notion Date Extraction          =
 ===============================================*/
 
+const FALLBACK_DATE_FIELDS = [
+  'Publish Date',
+  'Planned Date',
+  'Date',
+  'Scheduled Date',
+];
+
+const buildLookupOrder = (preferredField?: string) => {
+  const order = [
+    ...(preferredField ? [preferredField] : []),
+    ...FALLBACK_DATE_FIELDS,
+  ];
+  return order.filter(
+    (field, index) => Boolean(field) && order.indexOf(field) === index
+  ) as string[];
+};
+
+const extractDateFromProperty = (
+  property?: NotionPropertyValue
+): string | null => {
+  if (
+    property &&
+    typeof property === 'object' &&
+    'type' in property &&
+    property.type === 'date' &&
+    'date' in property &&
+    property.date
+  ) {
+    const start =
+      typeof property.date === 'object' &&
+      property.date !== null &&
+      'start' in property.date &&
+      typeof property.date.start === 'string'
+        ? property.date.start
+        : null;
+    if (start) {
+      return start;
+    }
+  }
+  return null;
+};
+
 /**
  * Extract planned publish date from Notion page properties
  */
 export function extractPlannedDateFromNotion(
-  notionPageData: NotionPageData
+  notionPageData: NotionPageData,
+  preferredField?: string
 ): string | null {
-  const dateFields = ['Publish Date', 'Planned Date', 'Date', 'Scheduled Date'];
+  const lookupOrder = buildLookupOrder(preferredField);
 
-  for (const fieldName of dateFields) {
-    const field = notionPageData.properties?.[fieldName];
-    if (
-      field &&
-      typeof field === 'object' &&
-      'type' in field &&
-      field.type === 'date' &&
-      'date' in field &&
-      field.date
-    ) {
-      const start =
-        typeof field.date === 'object' &&
-        field.date !== null &&
-        'start' in field.date &&
-        typeof field.date.start === 'string'
-          ? field.date.start
-          : null;
-      if (start) {
-        return start;
-      }
+  for (const fieldName of lookupOrder) {
+    const result = extractDateFromProperty(
+      notionPageData.properties?.[fieldName] as NotionPropertyValue
+    );
+    if (result) {
+      return result;
     }
   }
 
@@ -102,39 +135,22 @@ export function extractPlannedDateFromNotion(
  * Extract planned publish date from NotionPage (used in cron filtering)
  */
 export function extractPlannedDateFromNotionPage(
-  page: NotionPage
+  page: NotionPage,
+  preferredField?: string
 ): string | null {
-  const dateFields = ['Publish Date', 'Planned Date', 'Date', 'Scheduled Date'];
+  const lookupOrder = buildLookupOrder(preferredField);
 
-  // Try propertyValues first (simplified values)
-  for (const fieldName of dateFields) {
+  for (const fieldName of lookupOrder) {
     const value = page.propertyValues?.[fieldName];
     if (value && typeof value === 'string') {
       return value;
     }
   }
 
-  // Fallback to raw properties
-  for (const fieldName of dateFields) {
-    const property = page.properties?.[fieldName];
-    if (
-      property &&
-      typeof property === 'object' &&
-      'type' in property &&
-      property.type === 'date' &&
-      'date' in property &&
-      property.date
-    ) {
-      const start =
-        typeof property.date === 'object' &&
-        property.date !== null &&
-        'start' in property.date &&
-        typeof property.date.start === 'string'
-          ? property.date.start
-          : null;
-      if (start) {
-        return start;
-      }
+  for (const fieldName of lookupOrder) {
+    const result = extractDateFromProperty(page.properties?.[fieldName]);
+    if (result) {
+      return result;
     }
   }
 

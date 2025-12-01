@@ -8,6 +8,7 @@ interface ApiConfigSectionProps {
   onTestConnection: () => void;
   isTesting: boolean;
   onClearFieldError?: (field: ConfigFieldKey) => void;
+  datePropertyOptions?: Array<{ value: string; label: string }>;
 }
 
 const INPUT_FIELDS: Array<{
@@ -100,6 +101,7 @@ export function ApiConfigSection({
   onTestConnection,
   isTesting,
   onClearFieldError,
+  datePropertyOptions = [],
 }: ApiConfigSectionProps) {
   // Default to mistral if no provider selected
   const selectedProvider = config.llmProvider || 'mistral';
@@ -107,6 +109,12 @@ export function ApiConfigSection({
   const selectedProviderInfo = LLM_PROVIDERS.find(
     (p) => p.value === selectedProvider
   );
+  const hasDateOptions = datePropertyOptions.length > 0;
+  const hasCustomDateSelection =
+    !!config.publishDateProperty &&
+    !datePropertyOptions.some(
+      (option) => option.value === config.publishDateProperty
+    );
 
   return (
     <Card padding={4} border>
@@ -156,6 +164,38 @@ export function ApiConfigSection({
             </Box>
           );
         })}
+
+        <Box>
+          <Text size={2} weight="medium" style={{ marginBottom: 6 }}>
+            Planned Publish Date Field
+          </Text>
+          <Select
+            value={config.publishDateProperty || ''}
+            onChange={(event) =>
+              onFieldChange('publishDateProperty', event.currentTarget.value)
+            }
+            disabled={!hasDateOptions && !hasCustomDateSelection}
+          >
+            <option value="">
+              Auto-detect (Publish Date / Planned Date / Date)
+            </option>
+            {datePropertyOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+            {hasCustomDateSelection && (
+              <option value={config.publishDateProperty}>
+                {config.publishDateProperty} (not found in database)
+              </option>
+            )}
+          </Select>
+          <Text size={1} muted style={{ marginTop: 4 }}>
+            {hasDateOptions
+              ? 'Select which Notion date property represents the planned publish date.'
+              : 'Run “Test Connection” after entering your Notion credentials to load date fields from the database.'}
+          </Text>
+        </Box>
 
         <Box>
           <Text size={2} weight="medium" style={{ marginBottom: 6 }}>

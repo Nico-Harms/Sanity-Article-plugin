@@ -150,9 +150,12 @@ async function createAndTrackSanityDraft(
 
   // Prepare content for the specific schema
   const schemaType = config.selectedSchema || 'article';
+  const plannedPublishDate =
+    extractPlannedDateFromNotion(pageData, config.publishDateProperty) ??
+    undefined;
   const rawContent: SanityDraftData = {
     ...draftContent,
-    publishDate: extractPlannedDateFromNotion(pageData) ?? undefined,
+    publishDate: plannedPublishDate,
   };
 
   const preparedContent = await schemaService.prepareContentForSchema(
@@ -169,7 +172,10 @@ async function createAndTrackSanityDraft(
 
   // Create draft metadata for tracking
   const draftMetadataService = await getDraftMetadataService();
-  const plannedDate = extractPlannedDateFromNotion(pageData);
+  const plannedDateForMetadata = extractPlannedDateFromNotion(
+    pageData,
+    config.publishDateProperty
+  );
 
   await draftMetadataService.createDraftMetadata({
     notionPageId: pageData.id,
@@ -177,7 +183,8 @@ async function createAndTrackSanityDraft(
     sanityDocumentType: schemaType,
     studioId: config.studioId,
     status: 'pending_review',
-    plannedPublishDate: plannedDate || new Date().toISOString().split('T')[0],
+    plannedPublishDate:
+      plannedDateForMetadata || new Date().toISOString().split('T')[0],
     generatedAt: new Date(),
   });
 
@@ -228,7 +235,10 @@ export async function generateWeekContent(): Promise<WeekGenerationResult> {
 
         for (const page of notionPages) {
           // Extract planned date from page
-          const plannedDate = extractPlannedDateFromNotionPage(page);
+          const plannedDate = extractPlannedDateFromNotionPage(
+            page,
+            config.publishDateProperty
+          );
 
           if (!plannedDate) {
             continue; // Skip pages without a planned date

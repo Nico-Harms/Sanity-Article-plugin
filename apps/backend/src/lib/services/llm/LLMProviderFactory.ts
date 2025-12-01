@@ -7,18 +7,6 @@ import { PerplexityProvider } from './providers/PerplexityProvider';
 |=           LLM Provider Factory               =
 ===============================================*/
 
-/**
- * LLM PROVIDER FACTORY
- *
- * Factory class to create the appropriate LLM provider instance
- * based on the explicitly selected provider from configuration.
- *
- * This uses the Factory Pattern to:
- * - Centralize provider instantiation logic
- * - Make it easy to add new providers
- * - Maintain type safety across all providers
- */
-
 type ProviderType = 'mistral' | 'openai' | 'gemini' | 'perplexity';
 
 export type LLMProvider =
@@ -56,5 +44,3 @@ export class LLMProviderFactory {
     }
   }
 }
-
-

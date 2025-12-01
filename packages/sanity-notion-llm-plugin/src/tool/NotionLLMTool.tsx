@@ -1,4 +1,5 @@
 import { Card, Text, Stack, Box } from '@sanity/ui';
+import { useMemo } from 'react';
 import { useProjectId, useSchema } from 'sanity';
 import { TabbedInterface } from '../components/layout/TabbedInterface';
 import { SimpleFieldsTabContent } from '../components/tabs/SimpleFieldsTabContent';
@@ -13,9 +14,19 @@ import { ApiClient } from '../services/apiClient';
 export function NotionLLMTool() {
   const projectId = useProjectId();
   const schema = useSchema();
-  const { state, updateConfig, saveConfig, setSchema } =
-    usePluginConfig(projectId, schema);
+  const { state, updateConfig, saveConfig, setSchema } = usePluginConfig(
+    projectId,
+    schema
+  );
   const notionData = useNotionData(projectId, state.config);
+
+  const datePropertyOptions = useMemo(() => {
+    const properties = notionData.database?.properties;
+    if (!properties) return [];
+    return Object.entries(properties)
+      .filter(([, property]) => property?.type === 'date')
+      .map(([name]) => ({ value: name, label: name }));
+  }, [notionData.database]);
 
   if (state.loading && !state.config) {
     return (
@@ -45,7 +56,7 @@ export function NotionLLMTool() {
           >
             <Text size={0} muted>
               Studio ID: {projectId || 'Unknown'}
-        </Text>
+            </Text>
           </Box>
         </Stack>
       </Card>
@@ -86,6 +97,7 @@ export function NotionLLMTool() {
       config={config}
       saving={state.saving}
       loading={state.loading}
+      datePropertyOptions={datePropertyOptions}
       onConfigFieldChange={(field, value) =>
         updateConfig((current: PluginConfig) => ({
           ...current,
@@ -145,7 +157,12 @@ export function NotionLLMTool() {
     />
   );
 
-  const generalTabContent = <GeneralTabContent studioId={projectId} />;
+  const generalTabContent = (
+    <GeneralTabContent
+      studioId={projectId}
+      publishDateProperty={config.publishDateProperty}
+    />
+  );
 
   const tabs = [
     { id: 'general', label: 'General', content: generalTabContent },
