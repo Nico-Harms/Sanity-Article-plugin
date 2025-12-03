@@ -104,7 +104,3 @@ The system is designed for a weekly editorial rhythm:
 1. **Monday**: Cron job generates drafts for all "Waiting" Notion items.
 2. **Mid-week**: Editors review and approve drafts in Sanity.
 3. **Daily**: Cron job publishes approved drafts on their scheduled dates.
-
-## License
-
-MIT License.

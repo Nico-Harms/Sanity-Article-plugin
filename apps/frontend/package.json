@@ -28,5 +28,8 @@
     "postcss": "^8.0.0",
     "tailwindcss": "^4.1.15",
     "typescript": "^5.0.0"
+  },
+  "optionalDependencies": {
+    "@next/swc-darwin-x64": "^15.0.0"
   }
 }
