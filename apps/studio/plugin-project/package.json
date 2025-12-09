@@ -15,12 +15,12 @@
     "sanity"
   ],
   "dependencies": {
-    "@sanity-notion-llm/shared": "file:../../../packages/shared",
-    "@sanity/vision": "^4.11.0",
+    "@sanity-notion-llm/shared": "npm:sanity-hermes-shared@*",
+    "@sanity/vision": "^4.20.3",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "sanity": "^4.11.0",
-    "sanity-hermes": "file:../../../packages/sanity-notion-llm-plugin",
+    "sanity": "^4.20.3",
+    "sanity-hermes": "*",
     "styled-components": "^6.1.18"
   },
   "devDependencies": {

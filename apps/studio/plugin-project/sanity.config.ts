@@ -11,7 +11,13 @@ export default defineConfig({
   projectId: process.env.SANITY_STUDIO_PROJECT_ID || '',
   dataset: process.env.SANITY_STUDIO_DATASET || 'production',
 
-  plugins: [structureTool(), visionTool(), sanityNotionLLMPlugin()],
+  plugins: [
+    structureTool(),
+    visionTool(),
+    sanityNotionLLMPlugin({
+      showDebugTab: process.env.SANITY_STUDIO_GENERATE_TAB_CONTENT === 'true',
+    }),
+  ],
 
   schema: {
     types: schemaTypes,

@@ -11,7 +11,11 @@ import type { PluginConfig, DetectedField } from 'sanity-hermes-shared';
 import { useNotionData } from './hooks/useNotionData';
 import { ApiClient } from '../services/apiClient';
 
-export function NotionLLMTool() {
+interface NotionLLMToolProps {
+  showDebugTab?: boolean;
+}
+
+export function NotionLLMTool({ showDebugTab }: NotionLLMToolProps) {
   const projectId = useProjectId();
   const schema = useSchema();
   const { state, updateConfig, saveConfig, setSchema } = usePluginConfig(
@@ -168,8 +172,16 @@ export function NotionLLMTool() {
     { id: 'general', label: 'General', content: generalTabContent },
     { id: 'fields', label: 'Fields', content: fieldsTabContent },
     { id: 'settings', label: 'Settings', content: settingsTabContent },
-    { id: 'generate', label: 'Generate', content: generateTabContent },
   ];
+
+  // Only add the Generate tab if explicitly enabled via config
+  if (showDebugTab) {
+    tabs.push({
+      id: 'generate',
+      label: 'Generate',
+      content: generateTabContent,
+    });
+  }
 
   return (
     <Card padding={4}>

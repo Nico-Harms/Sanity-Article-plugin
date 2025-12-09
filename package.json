@@ -5,6 +5,7 @@
   "description": "A reusable Sanity plugin that connects Notion tables with LLM to generate article drafts",
   "workspaces": [
     "apps/*",
+    "apps/studio/plugin-project",
     "packages/*"
   ],
   "scripts": {
