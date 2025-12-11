@@ -1,0 +1,194 @@
+openapi: 3.1.0
+info:
+  title: Sanity Notion LLM API
+  version: '1.0.0'
+  description: >
+    Backend API used by the Hermes plugin to fetch Notion data, generate drafts via LLM,
+    manage draft metadata, and introspect schema/configuration.
+servers:
+  - url: https://sanity-notion-llm-api.vercel.app
+    description: Production
+  - url: http://localhost:3001
+    description: Local development
+paths:
+  /api/health:
+    get:
+      summary: GET /api/health
+      responses:
+        '200':
+          description: OK
+  /api/config:
+    get:
+      summary: GET /api/config
+      parameters:
+        - name: studioId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Konfiguration fundet
+        '404':
+          description: Ingen konfiguration
+    post:
+      summary: POST /api/config
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PluginConfig'
+      responses:
+        '200':
+          description: Konfiguration gemt
+  /api/notion/table:
+    get:
+      summary: GET /api/notion/table
+      parameters:
+        - name: studioId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /api/notion/status:
+    patch:
+      summary: PATCH /api/notion/status
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pageId:
+                  type: string
+                status:
+                  type: string
+                propertyName:
+                  type: string
+      responses:
+        '200':
+          description: Status opdateret
+  /api/generate:
+    post:
+      summary: POST /api/generate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                studioId:
+                  type: string
+                notionPageId:
+                  type: string
+              required: [studioId, notionPageId]
+      responses:
+        '200':
+          description: Draft genereret
+  /api/drafts:
+    get:
+      summary: GET /api/drafts
+      parameters:
+        - name: studioId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /api/drafts/approve:
+    post:
+      summary: POST /api/drafts/approve
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                studioId:
+                  type: string
+                documentId:
+                  type: string
+              required: [studioId, documentId]
+      responses:
+        '200':
+          description: Godkendt
+  /api/drafts/stats:
+    get:
+      summary: GET /api/drafts/stats
+      parameters:
+        - name: studioId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+  /api/schema:
+    get:
+      summary: GET /api/schema
+      parameters:
+        - name: studioId
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: typeName
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: OK
+components:
+  schemas:
+    PluginConfig:
+      type: object
+      description: Konfiguration for et Studio (plaintext når den sendes/returneres; backend krypterer ved gem)
+      properties:
+        studioId:
+          type: string
+        notionDatabaseUrl:
+          type: string
+        notionClientSecret:
+          type: string
+          description: Notion client secret (plaintext i request/response; krypteres i DB)
+        llmApiKey:
+          type: string
+          description: LLM API key (plaintext i request/response; krypteres i DB)
+        sanityProjectId:
+          type: string
+          description: Sanity Project ID (plaintext i request/response; krypteres i DB)
+        sanityToken:
+          type: string
+          description: Sanity token (plaintext i request/response; krypteres i DB)
+        sanityDataset:
+          type: string
+          description: Dataset, default "production"
+        selectedSchema:
+          type: string
+          nullable: true
+        detectedFields:
+          type: array
+          items:
+            type: object
+            properties:
+              name:
+                type: string
+              purpose:
+                type: string
+              enabled:
+                type: boolean
+          description: Valgte/aktiverede felter og deres formål
+        isActive:
+          type: boolean
