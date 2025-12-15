@@ -2,39 +2,18 @@
 
 import { PortableText } from '@portabletext/react';
 import type { PortableTextBlock } from '@portabletext/types';
-import type { ReactNode } from 'react';
 import { urlFor } from '@/lib/sanity';
 
 interface PortableTextRendererProps {
   content: PortableTextBlock[];
 }
 
-// Define component props with proper typing
-interface BlockProps {
-  children?: ReactNode;
-}
-
-interface LinkProps {
-  children?: ReactNode;
-  value?: { href?: string };
-}
-
-interface ImageValue {
-  asset?: { _ref?: string };
-  alt?: string;
-  caption?: string;
-}
-
-const components = {
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const components: any = {
   types: {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    image: ({ value }: { value: ImageValue }) => {
+    image: ({ value }: any) => {
       if (!value?.asset) return null;
-      // Cast to any for urlFor compatibility
-      const imageUrl = urlFor(value as any)
-        .width(800)
-        .height(600)
-        .url();
+      const imageUrl = urlFor(value).width(800).height(600).url();
       return (
         <div className="my-8">
           <img
@@ -52,33 +31,33 @@ const components = {
     },
   },
   block: {
-    h1: ({ children }: BlockProps) => (
+    h1: ({ children }: any) => (
       <h1 className="text-4xl font-bold mt-8 mb-4">{children}</h1>
     ),
-    h2: ({ children }: BlockProps) => (
+    h2: ({ children }: any) => (
       <h2 className="text-3xl font-bold mt-6 mb-3">{children}</h2>
     ),
-    h3: ({ children }: BlockProps) => (
+    h3: ({ children }: any) => (
       <h3 className="text-2xl font-semibold mt-4 mb-2">{children}</h3>
     ),
-    h4: ({ children }: BlockProps) => (
+    h4: ({ children }: any) => (
       <h4 className="text-xl font-semibold mt-3 mb-2">{children}</h4>
     ),
-    normal: ({ children }: BlockProps) => (
+    normal: ({ children }: any) => (
       <p className="mb-4 leading-relaxed">{children}</p>
     ),
-    blockquote: ({ children }: BlockProps) => (
+    blockquote: ({ children }: any) => (
       <blockquote className="border-l-4 border-blue-500 pl-4 my-4 italic text-gray-700">
         {children}
       </blockquote>
     ),
   },
   marks: {
-    strong: ({ children }: BlockProps) => (
+    strong: ({ children }: any) => (
       <strong className="font-bold">{children}</strong>
     ),
-    em: ({ children }: BlockProps) => <em className="italic">{children}</em>,
-    link: ({ value, children }: LinkProps) => {
+    em: ({ children }: any) => <em className="italic">{children}</em>,
+    link: ({ value, children }: any) => {
       const href = value?.href || '';
       const target = href.startsWith('http') ? '_blank' : undefined;
       const rel = target === '_blank' ? 'noopener noreferrer' : undefined;
@@ -95,18 +74,19 @@ const components = {
     },
   },
   list: {
-    bullet: ({ children }: BlockProps) => (
+    bullet: ({ children }: any) => (
       <ul className="list-disc list-inside mb-4 space-y-2">{children}</ul>
     ),
-    number: ({ children }: BlockProps) => (
+    number: ({ children }: any) => (
       <ol className="list-decimal list-inside mb-4 space-y-2">{children}</ol>
     ),
   },
   listItem: {
-    bullet: ({ children }: BlockProps) => <li className="ml-4">{children}</li>,
-    number: ({ children }: BlockProps) => <li className="ml-4">{children}</li>,
+    bullet: ({ children }: any) => <li className="ml-4">{children}</li>,
+    number: ({ children }: any) => <li className="ml-4">{children}</li>,
   },
 };
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export default function PortableTextRenderer({
   content,
