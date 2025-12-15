@@ -162,9 +162,13 @@ export function NotionLLMTool() {
     />
   );
 
-  // Show generate tab based on environment variable
-  const showDebugTab =
-    process.env.SANITY_STUDIO_GENERATE_TAB_CONTENT === 'true';
+  // Show generate tab ONLY if explicitly enabled via environment variable
+  // Default: hidden (false) - only visible when SANITY_STUDIO_GENERATE_TAB_CONTENT='true'
+  const showDebugTab = Boolean(
+    typeof process !== 'undefined' &&
+    process.env &&
+    process.env.SANITY_STUDIO_GENERATE_TAB_CONTENT === 'true'
+  );
 
   const tabs = [
     { id: 'general', label: 'General', content: generalTabContent },
