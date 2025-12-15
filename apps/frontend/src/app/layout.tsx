@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'My Blog',
-  description: 'A blog powered by Sanity CMS',
+  title: 'Blog',
+  description: 'Posts from Sanity',
 };
 
 export default function RootLayout({
@@ -13,14 +13,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-gray-50 min-h-screen">
-        <header className="bg-white shadow-sm border-b">
-          <div className="max-w-4xl mx-auto px-4 py-6">
-            <h1 className="text-3xl font-bold text-gray-900">My Blog</h1>
-            <p className="text-gray-600 mt-2">Powered by Sanity CMS</p>
-          </div>
-        </header>
-        <main className="max-w-4xl mx-auto px-4 py-8">{children}</main>
+      <body className="bg-gray-50 text-gray-900">
+        <div className="max-w-3xl mx-auto px-4 py-10">
+          <header className="mb-10">
+            <h1 className="text-3xl font-bold">Blog</h1>
+            <p className="text-gray-600">Powered by Sanity</p>
+          </header>
+          <main>{children}</main>
+        </div>
       </body>
     </html>
   );
