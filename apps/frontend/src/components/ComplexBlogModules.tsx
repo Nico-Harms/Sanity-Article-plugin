@@ -1,11 +1,9 @@
 'use client';
 
 import PortableTextRenderer from './PortableTextRenderer';
-import type { ComplexBlogModule } from '@/lib/sanity';
-import { urlFor } from '@/lib/sanity';
 
 interface ComplexBlogModulesProps {
-  modules: ComplexBlogModule[];
+  modules: any[];
 }
 
 export default function ComplexBlogModules({
@@ -18,10 +16,12 @@ export default function ComplexBlogModules({
   return (
     <div className="space-y-8">
       {modules.map((module, index) => {
+        const key = module._key || index;
+
         switch (module._type) {
           case 'richTextModule':
             return module.content ? (
-              <div key={module._key || index}>
+              <div key={key}>
                 <PortableTextRenderer content={module.content} />
               </div>
             ) : null;
@@ -29,7 +29,7 @@ export default function ComplexBlogModules({
           case 'quoteModule':
             return (
               <blockquote
-                key={module._key || index}
+                key={key}
                 className="border-l-4 border-blue-500 pl-6 py-4 my-6 italic text-gray-700 bg-gray-50 rounded-r-lg"
               >
                 <p className="text-lg mb-2">"{module.quote}"</p>
@@ -39,13 +39,11 @@ export default function ComplexBlogModules({
               </blockquote>
             );
 
-          case 'imageModule': {
-            if (!module.image?.asset) return null;
-            const imageUrl = urlFor(module.image).width(1200).url();
-            return (
-              <figure key={module._key || index} className="my-8">
+          case 'imageModule':
+            return module.image?.asset?.url ? (
+              <figure key={key} className="my-8">
                 <img
-                  src={imageUrl}
+                  src={module.image.asset.url}
                   alt={module.caption || 'Image'}
                   className="w-full rounded-lg"
                 />
@@ -55,22 +53,14 @@ export default function ComplexBlogModules({
                   </figcaption>
                 )}
               </figure>
-            );
-          }
+            ) : null;
 
           case 'codeModule':
             return (
-              <div key={module._key || index} className="my-6">
+              <div key={key} className="my-6">
                 <pre className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
-                  <code className={`language-${module.language || 'text'}`}>
-                    {module.code}
-                  </code>
+                  <code>{module.code}</code>
                 </pre>
-                {module.language && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Language: {module.language}
-                  </p>
-                )}
               </div>
             );
 
@@ -81,4 +71,3 @@ export default function ComplexBlogModules({
     </div>
   );
 }
-

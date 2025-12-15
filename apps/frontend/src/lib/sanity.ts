@@ -23,7 +23,8 @@ export const client = createClient({
 // Image URL builder for Sanity images
 const builder = imageUrlBuilder(client);
 
-export function urlFor(source: SanityImage) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function urlFor(source: any) {
   return builder.image(source);
 }
 
