@@ -7,24 +7,29 @@ const dataset = process.env.NEXT_PUBLIC_SANITY_DATASET || 'production';
 const apiVersion = process.env.NEXT_PUBLIC_SANITY_API_VERSION || '2025-01-01';
 const useCdn = process.env.NEXT_PUBLIC_SANITY_USE_CDN === 'true';
 
-if (!process.env.NEXT_PUBLIC_SANITY_PROJECT_ID) {
+const isSanityConfigured = Boolean(projectId && dataset);
+
+if (!isSanityConfigured) {
   console.warn(
-    '[sanity] NEXT_PUBLIC_SANITY_PROJECT_ID is not set. Sanity client will not function properly.'
+    '[sanity] Missing NEXT_PUBLIC_SANITY_PROJECT_ID or dataset. Falling back to empty data.'
   );
 }
 
-export const client = createClient({
-  projectId,
-  dataset,
-  apiVersion,
-  useCdn,
-});
+export const client = isSanityConfigured
+  ? createClient({
+      projectId,
+      dataset,
+      apiVersion,
+      useCdn,
+    })
+  : null;
 
 // Image URL builder for Sanity images
-const builder = imageUrlBuilder(client);
+const builder = client ? imageUrlBuilder(client) : null;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function urlFor(source: any) {
+  if (!builder) return null;
   return builder.image(source);
 }
 
@@ -91,6 +96,10 @@ const safeFetch = async <T>(
   params: Record<string, unknown>,
   fallback: T
 ): Promise<T> => {
+  if (!client) {
+    return fallback;
+  }
+
   try {
     return await client.fetch<T>(query, params);
   } catch (error) {
