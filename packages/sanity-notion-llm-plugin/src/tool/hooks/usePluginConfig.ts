@@ -157,42 +157,17 @@ export function usePluginConfig(studioId: string | null, schema?: Schema) {
 
   // Clear detected fields and refresh from schema
   const refreshSchema = useCallback(async () => {
-    if (!state.config || !state.config.selectedSchema) return;
+    if (!state.config) return;
 
-    // Re-fetch fields from the current schema to refresh
-    const schemaName = state.config.selectedSchema;
-    const selectedType = state.schemaTypes.find(
-      (type) => type.name === schemaName
-    );
+    // Clear detectedFields and save to MongoDB
+    const clearedConfig = {
+      ...state.config,
+      detectedFields: [],
+    };
 
-    if (selectedType) {
-      // Use backend API for more complete field detection
-      try {
-        const response = await ApiClient.getSchemaFields(
-          state.config.studioId,
-          schemaName
-        );
-        if (response.fields) {
-          updateConfig((current) => ({
-            ...current,
-            selectedSchema: schemaName,
-            detectedFields: response.fields!.map(
-              (field) =>
-                ({
-                  ...field,
-                  enabled: false,
-                  purpose: '',
-                }) as DetectedField
-            ),
-          }));
-          // Persist the updated config
-          setTimeout(() => persist(state.config!), 0);
-        }
-      } catch (error) {
-        console.error('[usePluginConfig] Refresh schema failed:', error);
-      }
-    }
-  }, [state.config, state.schemaTypes, updateConfig, persist]);
+    updateConfig(() => clearedConfig);
+    await persist(clearedConfig);
+  }, [state.config, updateConfig, persist]);
 
   // Update schema and fetch detected fields
   const setSchema = useCallback(
