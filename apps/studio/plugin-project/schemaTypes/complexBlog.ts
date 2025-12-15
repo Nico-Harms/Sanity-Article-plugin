@@ -2,7 +2,7 @@ import {defineField, defineType} from 'sanity'
 
 export default defineType({
   name: 'complexBlog',
-  title: 'Complex Blog',
+  title: 'Article',
   type: 'document',
   fields: [
     defineField({
@@ -22,22 +22,23 @@ export default defineType({
       validation: (Rule) => Rule.required(),
     }),
     defineField({
-      name: 'ingress',
-      title: 'Ingress',
+      name: 'body',
+      title: 'Body',
       type: 'blockContent',
-      description: 'Short introduction shown before the main content',
     }),
     defineField({
-      name: 'modules',
-      title: 'Content Modules',
+      name: 'quote',
+      title: 'Quote',
+      type: 'text',
+      rows: 4,
+      description: 'A compelling quote from the article',
+    }),
+    defineField({
+      name: 'keyTakeaways',
+      title: 'Key Takeaways',
       type: 'array',
-      of: [
-        {type: 'richTextModule'},
-        {type: 'quoteModule'},
-        {type: 'imageModule'},
-        {type: 'codeModule'},
-      ],
-      description: 'Flexible content blocks for the blog article',
+      of: [{type: 'string'}],
+      description: 'Bullet points of main insights',
     }),
     defineField({
       name: 'publishedAt',

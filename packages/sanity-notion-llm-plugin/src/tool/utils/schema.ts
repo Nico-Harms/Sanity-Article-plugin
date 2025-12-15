@@ -16,8 +16,8 @@ type SchemaLike = SanitySchemaType & {
 const hasFields = (value: unknown): value is SchemaLike =>
   Boolean(
     value &&
-      typeof value === 'object' &&
-      Array.isArray((value as SchemaLike).fields)
+    typeof value === 'object' &&
+    Array.isArray((value as SchemaLike).fields)
   );
 
 const getTypeName = (fieldType: unknown): string => {
@@ -39,17 +39,17 @@ const isDocumentType = (
 ): type is SchemaLike =>
   Boolean(
     type &&
-      (type.type?.name === 'document' ||
-        (type as { jsonType?: string }).jsonType === 'document') &&
-      hasFields(type)
+    (type.type?.name === 'document' ||
+      (type as { jsonType?: string }).jsonType === 'document') &&
+    hasFields(type)
   );
 
 const isObjectType = (type: SanitySchemaType | undefined): type is SchemaLike =>
   Boolean(
     type &&
-      (type.type?.name === 'object' ||
-        (type as { jsonType?: string }).jsonType === 'object') &&
-      hasFields(type)
+    (type.type?.name === 'object' ||
+      (type as { jsonType?: string }).jsonType === 'object') &&
+    hasFields(type)
   );
 
 const addFieldIfMissing = (

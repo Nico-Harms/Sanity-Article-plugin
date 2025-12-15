@@ -11,17 +11,11 @@ import type { PluginConfig, DetectedField } from 'sanity-hermes-shared';
 import { useNotionData } from './hooks/useNotionData';
 import { ApiClient } from '../services/apiClient';
 
-interface NotionLLMToolProps {
-  showDebugTab?: boolean;
-}
-
-export function NotionLLMTool({ showDebugTab }: NotionLLMToolProps) {
+export function NotionLLMTool() {
   const projectId = useProjectId();
   const schema = useSchema();
-  const { state, updateConfig, saveConfig, setSchema } = usePluginConfig(
-    projectId,
-    schema
-  );
+  const { state, updateConfig, saveConfig, setSchema, refreshSchema } =
+    usePluginConfig(projectId, schema);
   const notionData = useNotionData(projectId, state.config);
 
   const datePropertyOptions = useMemo(() => {
@@ -90,7 +84,7 @@ export function NotionLLMTool({ showDebugTab }: NotionLLMToolProps) {
           ),
         }))
       }
-      onRefreshSchema={() => void setSchema(config.selectedSchema)}
+      onRefreshSchema={() => void refreshSchema()}
       onSaveFields={saveConfig}
       saving={state.saving}
     />
@@ -167,6 +161,10 @@ export function NotionLLMTool({ showDebugTab }: NotionLLMToolProps) {
       publishDateProperty={config.publishDateProperty}
     />
   );
+
+  // Show generate tab based on environment variable
+  const showDebugTab =
+    process.env.SANITY_STUDIO_GENERATE_TAB_CONTENT === 'true';
 
   const tabs = [
     { id: 'general', label: 'General', content: generalTabContent },

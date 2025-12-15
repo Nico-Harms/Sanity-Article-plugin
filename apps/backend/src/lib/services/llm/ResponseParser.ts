@@ -30,12 +30,47 @@ export class ResponseParser {
       const parsed = JSON.parse(jsonString);
       return await this.normalizeAndValidateResponse(parsed, detectedFields);
     } catch (parseError) {
-      // Second attempt: fix unescaped control characters in string values
       console.warn(
-        '[response-parser] Initial JSON parse failed, attempting to fix control characters:',
+        '[response-parser] Initial JSON parse failed, attempting fixes:',
         parseError
       );
 
+      // Third attempt: try to fix incomplete JSON by closing braces/brackets
+      try {
+        let fixedJson = jsonString.trim();
+
+        // Count braces and brackets
+        const openBraces = (fixedJson.match(/\{/g) || []).length;
+        const closeBraces = (fixedJson.match(/\}/g) || []).length;
+        const openBrackets = (fixedJson.match(/\[/g) || []).length;
+        const closeBrackets = (fixedJson.match(/\]/g) || []).length;
+
+        // Add missing closing braces
+        for (let i = 0; i < openBraces - closeBraces; i++) {
+          fixedJson += '\n}';
+        }
+
+        // Add missing closing brackets
+        for (let i = 0; i < openBrackets - closeBrackets; i++) {
+          fixedJson += '\n]';
+        }
+
+        // Close unclosed strings at the end
+        if (fixedJson.split('"').length % 2 === 0) {
+          fixedJson += '"';
+        }
+
+        const parsed = JSON.parse(fixedJson);
+        console.log('[response-parser] Successfully fixed incomplete JSON');
+        return await this.normalizeAndValidateResponse(parsed, detectedFields);
+      } catch (fixError) {
+        console.warn(
+          '[response-parser] Failed to fix incomplete JSON:',
+          fixError
+        );
+      }
+
+      // Fourth attempt: fix unescaped control characters in string values
       try {
         // Fix unescaped control characters within JSON string values
         // This regex matches string values (content between quotes) and escapes control chars
@@ -186,27 +221,30 @@ export class ResponseParser {
    * Check if a field should skip normalization
    */
   private static shouldSkipNormalization(
-    fieldName: string,
+    fieldPath: string,
     fieldTypeMap: Map<string, string>
   ): boolean {
-    const fieldType = fieldTypeMap.get(fieldName);
+    const fieldType = fieldTypeMap.get(fieldPath);
     return fieldType === 'datetime' || fieldType === 'date';
   }
 
   private static async normalizeStringFields(
     obj: Record<string, unknown>,
-    fieldTypeMap: Map<string, string>
+    fieldTypeMap: Map<string, string>,
+    parentPath = ''
   ): Promise<Record<string, unknown>> {
     const normalized: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(obj)) {
+      const currentPath = parentPath ? `${parentPath}.${key}` : key;
+
       if (typeof value === 'string') {
-        if (this.shouldSkipNormalization(key, fieldTypeMap)) {
+        if (this.shouldSkipNormalization(currentPath, fieldTypeMap)) {
           const validDate = this.validateDateField(value);
           normalized[key] = validDate;
         } else {
-          // Check for block content fields
-          const fieldType = fieldTypeMap.get(key);
+          // Check for block content fields using the full path
+          const fieldType = fieldTypeMap.get(currentPath);
 
           // Apply normalization to other string fields
           try {
@@ -214,6 +252,9 @@ export class ResponseParser {
 
             if (fieldType === 'blockContent' || fieldType === 'array') {
               // Convert markdown string to Portable Text blocks
+              console.log(
+                `[response-parser] Converting ${currentPath} to blockContent (type: ${fieldType})`
+              );
               normalized[key] = convertStringToBlockContent(cleanedValue);
             } else {
               // Keep as cleaned string
@@ -221,7 +262,7 @@ export class ResponseParser {
             }
           } catch (error) {
             console.warn(
-              `[response-parser] Failed to normalize field "${key}":`,
+              `[response-parser] Failed to normalize field "${currentPath}":`,
               error
             );
             // If normalization fails, use original value
@@ -229,26 +270,14 @@ export class ResponseParser {
           }
         }
       } else if (Array.isArray(value)) {
-        // Handle arrays (recursively normalize objects in arrays)
-        normalized[key] = await Promise.all(
-          value.map(async (item) => {
-            if (typeof item === 'string') {
-              // Don't normalize string items in arrays - they're usually not text content
-              return item;
-            } else if (item && typeof item === 'object') {
-              return await this.normalizeStringFields(
-                item as Record<string, unknown>,
-                fieldTypeMap
-              );
-            }
-            return item;
-          })
-        );
+        // Handle arrays (like keyTakeaways) - keep string arrays as-is
+        normalized[key] = value;
       } else if (value && typeof value === 'object') {
         // Recursively normalize nested objects
         normalized[key] = await this.normalizeStringFields(
           value as Record<string, unknown>,
-          fieldTypeMap
+          fieldTypeMap,
+          currentPath
         );
       } else {
         normalized[key] = value;

@@ -40,9 +40,7 @@ export async function GET(request: NextRequest) {
           }
 
           if (!document) {
-            console.warn(
-              `[drafts-api] Document not found for ${docId}, skipping`
-            );
+            // Document not found - this is normal for drafts that haven't been created yet
             return null;
           }
 
