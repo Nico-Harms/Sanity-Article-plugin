@@ -1,5 +1,4 @@
 import { getPostBySlug, getComplexBlogBySlug } from '@/lib/sanity';
-import { notFound } from 'next/navigation';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -17,7 +16,16 @@ export default async function PostPage({ params }: { params: PostPageParams }) {
   const article: any = post || complexBlog;
 
   if (!article) {
-    notFound();
+    return (
+      <div className="text-center py-12">
+        <h1 className="text-2xl font-bold text-gray-900 mb-4">
+          Post not found
+        </h1>
+        <Link href="/" className="text-blue-600 hover:underline">
+          ← Back to home
+        </Link>
+      </div>
+    );
   }
 
   return (
