@@ -4,6 +4,56 @@ import { convertStringToBlockContent } from '../schema/blockContentConverter';
 
 export class ResponseParser {
   /**
+   * Escape control characters in JSON string values
+   * This must be done BEFORE JSON.parse to avoid "Bad control character" errors
+   */
+  private static escapeControlCharsInJson(jsonString: string): string {
+    // Process character by character to properly handle JSON string values
+    let result = '';
+    let inString = false;
+    let i = 0;
+
+    while (i < jsonString.length) {
+      const char = jsonString[i];
+
+      if (char === '"' && (i === 0 || jsonString[i - 1] !== '\\')) {
+        inString = !inString;
+        result += char;
+      } else if (inString) {
+        // Inside a JSON string - escape control characters
+        if (char === '\n') {
+          result += '\\n';
+        } else if (char === '\r') {
+          result += '\\r';
+        } else if (char === '\t') {
+          result += '\\t';
+        } else if (char === '\b') {
+          result += '\\b';
+        } else if (char === '\f') {
+          result += '\\f';
+        } else if (char.charCodeAt(0) < 32) {
+          // Other control characters - use unicode escape
+          result += '\\u' + char.charCodeAt(0).toString(16).padStart(4, '0');
+        } else {
+          result += char;
+        }
+      } else {
+        // Outside string - keep whitespace for JSON structure, escape others
+        if (char === '\n' || char === '\r' || char === '\t' || char === ' ') {
+          result += char;
+        } else if (char.charCodeAt(0) < 32) {
+          // Skip other control characters outside strings
+        } else {
+          result += char;
+        }
+      }
+      i++;
+    }
+
+    return result;
+  }
+
+  /**
    * Parse and validate the LLM response
    */
   static async parse(
@@ -24,9 +74,12 @@ export class ResponseParser {
 
     let jsonString = jsonMatch[0];
 
+    // ALWAYS escape control characters first - this prevents "Bad control character" errors
+    jsonString = this.escapeControlCharsInJson(jsonString);
+
     // Attempt to parse with multiple fallback strategies
     try {
-      // First attempt: parse as-is
+      // First attempt: parse the escaped JSON
       const parsed = JSON.parse(jsonString);
       return await this.normalizeAndValidateResponse(parsed, detectedFields);
     } catch (parseError) {
@@ -35,7 +88,7 @@ export class ResponseParser {
         parseError
       );
 
-      // Third attempt: try to fix incomplete JSON by closing braces/brackets
+      // Second attempt: try to fix incomplete JSON by closing braces/brackets
       try {
         let fixedJson = jsonString.trim();
 
@@ -47,12 +100,12 @@ export class ResponseParser {
 
         // Add missing closing braces
         for (let i = 0; i < openBraces - closeBraces; i++) {
-          fixedJson += '\n}';
+          fixedJson += '}';
         }
 
         // Add missing closing brackets
         for (let i = 0; i < openBrackets - closeBrackets; i++) {
-          fixedJson += '\n]';
+          fixedJson += ']';
         }
 
         // Close unclosed strings at the end
@@ -70,86 +123,24 @@ export class ResponseParser {
         );
       }
 
-      // Fourth attempt: fix unescaped control characters in string values
-      try {
-        // Fix unescaped control characters within JSON string values
-        // This regex matches string values (content between quotes) and escapes control chars
-        jsonString = jsonString.replace(
-          /"([^"\\]*(\\.[^"\\]*)*)"/g,
-          (match, content) => {
-            // Skip if already properly escaped or empty
-            if (!content || match.includes('\\n') || match.includes('\\t')) {
-              return match;
-            }
-            // Escape control characters: \n, \r, \t, etc.
-            const escaped = content
-              .replace(/\n/g, '\\n')
-              .replace(/\r/g, '\\r')
-              .replace(/\t/g, '\\t')
-              .replace(/\f/g, '\\f')
-              .replace(/\b/g, '\\b')
-              .replace(/\v/g, '\\v');
-            return `"${escaped}"`;
-          }
-        );
+      // Log for debugging
+      console.error('[response-parser] JSON parsing failed after all attempts');
+      console.error(
+        '[response-parser] Original response:',
+        response.substring(0, 500)
+      );
+      console.error(
+        '[response-parser] Processed JSON:',
+        jsonString.substring(0, 500)
+      );
 
-        const parsed = JSON.parse(jsonString);
-        return await this.normalizeAndValidateResponse(parsed, detectedFields);
-      } catch (secondError) {
-        // Third attempt: more aggressive - fix control chars within string values only
-        try {
-          // Process string values more carefully - escape control chars but preserve structure
-          // This regex handles escaped quotes and backslashes properly
-          jsonString = jsonMatch[0].replace(
-            /"((?:[^"\\]|\\.)*)"/g,
-            (match, content) => {
-              // Only process if content has unescaped control characters
-              if (
-                /[\n\r\t\f\b\v]/.test(content) &&
-                !/\\[nrtfbv]/.test(content)
-              ) {
-                const escaped = content
-                  .replace(/\n/g, '\\n')
-                  .replace(/\r/g, '\\r')
-                  .replace(/\t/g, '\\t')
-                  .replace(/\f/g, '\\f')
-                  .replace(/\b/g, '\\b')
-                  .replace(/\v/g, '\\v');
-                return `"${escaped}"`;
-              }
-              return match;
-            }
-          );
-
-          const parsed = JSON.parse(jsonString);
-          return await this.normalizeAndValidateResponse(
-            parsed,
-            detectedFields
-          );
-        } catch (finalError) {
-          // Log for debugging
-          console.error(
-            '[response-parser] JSON parsing failed after all attempts'
-          );
-          console.error(
-            '[response-parser] Original response:',
-            response.substring(0, 500)
-          );
-          console.error(
-            '[response-parser] Extracted JSON:',
-            jsonString.substring(0, 500)
-          );
-          console.error('[response-parser] Parse error:', finalError);
-
-          throw new Error(
-            `Failed to parse LLM response: ${
-              finalError instanceof Error
-                ? finalError.message
-                : 'Invalid JSON format. The LLM may have included unescaped control characters.'
-            }`
-          );
-        }
-      }
+      throw new Error(
+        `Failed to parse LLM response: ${
+          parseError instanceof Error
+            ? parseError.message
+            : 'Invalid JSON format'
+        }`
+      );
     }
   }
 
@@ -228,6 +219,24 @@ export class ResponseParser {
     return fieldType === 'datetime' || fieldType === 'date';
   }
 
+  /**
+   * Fix malformed escape sequences in parsed string content
+   * LLMs sometimes output \bn instead of \n, or other malformed sequences
+   */
+  private static fixMalformedContent(text: string): string {
+    return (
+      text
+        // Fix \bn -> newline (LLM outputs backspace+n instead of newline)
+        .replace(/\\bn/g, '\n')
+        // Fix literal \n strings that should be newlines
+        .replace(/\\n/g, '\n')
+        // Fix double-escaped newlines
+        .replace(/\\\\n/g, '\n')
+        // Normalize multiple newlines to double newlines for paragraphs
+        .replace(/\n{3,}/g, '\n\n')
+    );
+  }
+
   private static async normalizeStringFields(
     obj: Record<string, unknown>,
     fieldTypeMap: Map<string, string>,
@@ -248,7 +257,9 @@ export class ResponseParser {
 
           // Apply normalization to other string fields
           try {
-            const cleanedValue = await normalizeLLMOutput(value);
+            // First fix any malformed escape sequences
+            const fixedValue = this.fixMalformedContent(value);
+            const cleanedValue = await normalizeLLMOutput(fixedValue);
 
             if (fieldType === 'blockContent' || fieldType === 'array') {
               // Convert markdown string to Portable Text blocks
@@ -265,13 +276,26 @@ export class ResponseParser {
               `[response-parser] Failed to normalize field "${currentPath}":`,
               error
             );
-            // If normalization fails, use original value
-            normalized[key] = value;
+            // If normalization fails, use original value with basic fixes
+            normalized[key] = this.fixMalformedContent(value);
           }
         }
       } else if (Array.isArray(value)) {
-        // Handle arrays (like keyTakeaways) - keep string arrays as-is
-        normalized[key] = value;
+        // Handle arrays - also fix strings within arrays
+        normalized[key] = await Promise.all(
+          value.map(async (item) => {
+            if (typeof item === 'string') {
+              return this.fixMalformedContent(item);
+            } else if (item && typeof item === 'object') {
+              return this.normalizeStringFields(
+                item as Record<string, unknown>,
+                fieldTypeMap,
+                currentPath
+              );
+            }
+            return item;
+          })
+        );
       } else if (value && typeof value === 'object') {
         // Recursively normalize nested objects
         normalized[key] = await this.normalizeStringFields(
